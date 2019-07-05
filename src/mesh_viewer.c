@@ -409,7 +409,7 @@ void loop ()
 
 		// Get input
 		fgets(input, 256, stdin);
-		sscanf(input, "%s %f", &command, &ammount);
+		sscanf(input, "%s %f", command, &ammount);
 
 		// Quit
 		if (command[0] == 'q')
