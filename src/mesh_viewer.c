@@ -192,7 +192,7 @@ void clear()
 		for (int j = 0; j < 40; j++)
 		{
 			screen[i][j] = ' ';
-			depth[i][j] = 8192;
+			depth[i][j] = -8192;
 		}
 	}
 
@@ -298,7 +298,7 @@ void render()
 					}
 					
 					// Test it
-					if (depth[x][y] > d && d < -1)
+					if (depth[x][y] < d && d < -1)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
