@@ -298,7 +298,7 @@ void render()
 					}
 					
 					// Test it
-					if (depth[x][y] > d && d < 1)
+					if (depth[x][y] > d && d < -1)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
@@ -341,8 +341,8 @@ void draw()
 	// Clear the console
 	clear_screen();
 
-	// Print it, cropping to 80x24
-	for (int j = 12; j < 36; j++) 
+	// Print it
+	for (int j = 0; j < 40; j++) 
 	{
 		for (int i = 0; i < 80; i++) 
 		{
@@ -476,7 +476,7 @@ void loop ()
 			help();	
 
 		// Reset command
-		command[0] = 0;	
+		command[0] = 0;
 	}
 
 	return;
