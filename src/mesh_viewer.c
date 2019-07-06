@@ -261,28 +261,28 @@ void render()
 					// Handle vertical line
 					if (x_array[j] == x_array[j_n])
 					{	
-						out += (x_array[j] < x_array[j_nn]) ? (x < x_array[j]) : (x > x_array[j]);
+						out += (x_array[j] < x_array[j_nn]) ? (x+1 < x_array[j]) : (x-1 > x_array[j]);
 					}
 					else 
-					{ 
+					{
 						// Handle horizzontal one
 						if (y_array[j] == y_array[j_n])
 						{
-							out += (y_array[j] < y_array[j_nn]) ? (y < y_array[j]) : (y > y_array[j]);
+							out += (y_array[j] < y_array[j_nn]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
 						}						
 						else
 						{ 
-							// Check clock wise or not
+							// Check if the pixel is in the same direction of the other vertex
 							if ((x_array[j_nn] - x_array[j])*(y_array[j_n] - y_array[j]) < 
 								(y_array[j_nn] - y_array[j])*(x_array[j_n] - x_array[j]))
 								
 								// Then
-								out += (x - x_array[j])*(y_array[j_n] - y_array[j]) > 
-									(y - y_array[j])*(x_array[j_n] - x_array[j]);
+								out += (x+1 - x_array[j])*(y_array[j_n] - y_array[j]) > 
+									(y+1 - y_array[j])*(x_array[j_n] - x_array[j]);
 							else 
 								// Else
-								out += (x - x_array[j])*(y_array[j_n] - y_array[j]) < 
-									(y - y_array[j])*(x_array[j_n] - x_array[j]);
+								out += (x-1 - x_array[j])*(y_array[j_n] - y_array[j]) < 
+									(y-1 - y_array[j])*(x_array[j_n] - x_array[j]);
 						}					
 					}
 				}
@@ -408,7 +408,7 @@ void loop ()
 		draw();
 
 		// Get input
-		fgets(input, 256, stdin);
+		fgets(input, 128, stdin);
 		sscanf(input, "%s %f", command, &ammount);
 
 		// Quit
