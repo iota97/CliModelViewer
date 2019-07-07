@@ -161,22 +161,28 @@ void rotate(float x, float y, float z)
 	{
 		for (int j = 0; j < 3; j++) 
 		{
-			// Y
-			tris_buffer[i][j].x = cos(y) * tris_buffer[i][j].x -
-						sin(y) * tris_buffer[i][j].z;
-			tris_buffer[i][j].z = sin(y) * tris_buffer[i][j].x +
-						cos(y) * tris_buffer[i][j].z; 
-
+			// Back up float
+			float tmp;
+			
 			// X
+			tmp = tris_buffer[i][j].y;
 			tris_buffer[i][j].y = cos(x) * tris_buffer[i][j].y -
 						sin(x) * tris_buffer[i][j].z;
-			tris_buffer[i][j].z = sin(x) * tris_buffer[i][j].y +
+			tris_buffer[i][j].z = sin(x) * tmp +
 						cos(x) * tris_buffer[i][j].z; 
 
+			// Y
+			tmp = tris_buffer[i][j].x;
+			tris_buffer[i][j].x = cos(y) * tris_buffer[i][j].x -
+						sin(y) * tris_buffer[i][j].z;
+			tris_buffer[i][j].z = sin(y) * tmp +
+						cos(y) * tris_buffer[i][j].z; 
+			
 			// Z
+			tmp = tris_buffer[i][j].x;
 			tris_buffer[i][j].x = cos(z) * tris_buffer[i][j].x -
 						sin(z) * tris_buffer[i][j].y;
-			tris_buffer[i][j].y = sin(z) * tris_buffer[i][j].x +
+			tris_buffer[i][j].y = sin(z) * tmp +
 						cos(z) * tris_buffer[i][j].y; 
 		}
 	}
@@ -388,8 +394,8 @@ void loop ()
 	float s_z = 1;
 
 	// Input variables
-	char input[128];
-	char command[32];	
+
+	char command[64];	
 	float ammount = 0;
 	int quit = 0;
 
@@ -408,8 +414,8 @@ void loop ()
 		draw();
 
 		// Get input
-		fgets(input, 128, stdin);
-		sscanf(input, "%s %f", command, &ammount);
+		fgets(command, 64, stdin);
+		sscanf(command, "%*s %f", &ammount);
 
 		// Quit
 		if (command[0] == 'q')
