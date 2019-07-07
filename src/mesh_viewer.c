@@ -281,6 +281,21 @@ void render()
 			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * 40) + 40/2
 		};
 
+		// Calculate the depth of the vertex
+		double depth_array[] = {
+			-sqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
+				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
+				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z),
+
+			-sqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
+				tris_buffer[i*3+1].y*tris_buffer[i*3+1].y +
+				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z),
+
+			-sqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
+				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
+				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z),
+		};
+
 		// Get the bounding coordinate of the tris
 		int min_x = 80;
 		int min_y = 40;
@@ -323,47 +338,57 @@ void render()
 					{	
 						out += (x_array[j] < x_array[j2]) ? (x+1 < x_array[j]) : (x-1 > x_array[j]);
 					}
-					else 
+					
+					// Handle horizzontal one
+					else if (y_array[j] == y_array[j1])
 					{
-						// Handle horizzontal one
-						if (y_array[j] == y_array[j1])
+						out += (y_array[j] < y_array[j2]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
+					}
+
+					// Handle oblique one		
+					else
+					{ 
+						// Check if pixel is in the same direction of the other vertex (same distance sign)
+						float angular_coefficient = (y_array[j1] - y_array[j])/(x_array[j1] - x_array[j]);
+
+						if (((y_array[j2] - y_array[j]) - (x_array[j2] - x_array[j]) * angular_coefficient) *
+							((y+1 - y_array[j]) - (x+1 - x_array[j]) * angular_coefficient) < 0)
 						{
-							out += (y_array[j] < y_array[j2]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
-						}						
-						else
-						{ 
-							// Check if the pixel is in the same direction of the other vertex
-							if ((x_array[j2] - x_array[j])*(y_array[j1] - y_array[j]) < 
-								(y_array[j2] - y_array[j])*(x_array[j1] - x_array[j]))
-								
-								// Then
-								out += (x+1 - x_array[j])*(y_array[j1] - y_array[j]) > 
-									(y+1 - y_array[j])*(x_array[j1] - x_array[j]);
-							else 
-								// Else
-								out += (x-1 - x_array[j])*(y_array[j1] - y_array[j]) < 
-									(y-1 - y_array[j])*(x_array[j1] - x_array[j]);
-						}					
+								out += 1;
+						}
 					}
 				}
 
 				// If is inside every line, render it
 				if (!out) 
 				{
-					// Interpolate the depth
-					float d = 0;
-					for (int j = 0; j < 3; j++)
-					{
-						d += tris_buffer[i*3+j].z/sqrt((x-x_array[j])*(x-x_array[j]) +
-							(y-y_array[j])*(y-y_array[j]));
-					}
+					// Calculate the distance of the pixel from every vertex
+					float weight0 = sqrt((x-x_array[0])*(x-x_array[0])+(y-y_array[0])*(y-y_array[0]));
+					float weight1 = sqrt((x-x_array[1])*(x-x_array[1])+(y-y_array[1])*(y-y_array[1]));
+					float weight2 = sqrt((x-x_array[2])*(x-x_array[2])+(y-y_array[2])*(y-y_array[2]));
 					
+					// Use this distance to lerping vertex depth
+					float weight_sum = weight0 + weight1 + weight2;
+					weight0 /= weight_sum;
+					weight1 /= weight_sum;
+					weight2 /= weight_sum;
+
+					// Calculate the pixel depth
+					float pixel_depth = depth_array[0] * weight0 +
+							depth_array[1] * weight1 +
+							depth_array[2] * weight2;
+
+					// Avoid rendering behind the camera
+					float signed_depth = tris_buffer[0].z * weight0 +
+							tris_buffer[1].z * weight1 +
+							tris_buffer[2].z * weight2;
+
 					// Test it
-					if (depth[x][y] < d && d < -1)
+					if (depth[x][y] < pixel_depth && signed_depth < -1)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
-						depth[x][y] = d;
+						depth[x][y] =  pixel_depth;
 					}
 				}
 
