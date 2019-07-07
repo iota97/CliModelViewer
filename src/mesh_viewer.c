@@ -488,16 +488,34 @@ void loop ()
 			{
 				rotate(ammount, 0, 0);
 				r_x += ammount;
+
+				// Display rotation between -PI and PI
+				if (r_x > M_PI)
+					r_x -= M_PI + floor(r_x/(M_PI))*M_PI;
+				else if (r_x < -M_PI)
+					r_x += M_PI + floor(-r_x/(M_PI))*M_PI;
 			}
 			else if (command[1] == 'y')
 			{
 				rotate(0, ammount, 0);
 				r_y += ammount;
+
+				// Display rotation between -PI and PI
+				if (r_y > M_PI)
+					r_y -= M_PI + floor(r_y/(M_PI))*M_PI;
+				else if (r_y < -M_PI)
+					r_y += M_PI + floor(-r_y/(M_PI))*M_PI;
 			}
 			else if (command[1] == 'z')
 			{
 				rotate(0, 0, ammount);
 				r_z += ammount;
+
+				// Display rotation between -PI and PI
+				if (r_z > M_PI)
+					r_z -= M_PI + floor(r_z/(M_PI))*M_PI;
+				else if (r_z < -M_PI)
+					r_z += M_PI + floor(-r_z/(M_PI))*M_PI;
 			}
 
 			// Reposition the mesh back
