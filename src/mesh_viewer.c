@@ -491,9 +491,9 @@ void loop ()
 
 				// Display rotation between -PI and PI
 				if (r_x > M_PI)
-					r_x -= M_PI + floor(r_x/(M_PI))*M_PI;
+					r_x -= M_PI + floor(r_x/M_PI)*M_PI;
 				else if (r_x < -M_PI)
-					r_x += M_PI + floor(-r_x/(M_PI))*M_PI;
+					r_x += M_PI + floor(-r_x/M_PI)*M_PI;
 			}
 			else if (command[1] == 'y')
 			{
@@ -502,9 +502,9 @@ void loop ()
 
 				// Display rotation between -PI and PI
 				if (r_y > M_PI)
-					r_y -= M_PI + floor(r_y/(M_PI))*M_PI;
+					r_y -= M_PI + floor(r_y/M_PI)*M_PI;
 				else if (r_y < -M_PI)
-					r_y += M_PI + floor(-r_y/(M_PI))*M_PI;
+					r_y += M_PI + floor(-r_y/M_PI)*M_PI;
 			}
 			else if (command[1] == 'z')
 			{
@@ -513,9 +513,9 @@ void loop ()
 
 				// Display rotation between -PI and PI
 				if (r_z > M_PI)
-					r_z -= M_PI + floor(r_z/(M_PI))*M_PI;
+					r_z -= M_PI + floor(r_z/M_PI)*M_PI;
 				else if (r_z < -M_PI)
-					r_z += M_PI + floor(-r_z/(M_PI))*M_PI;
+					r_z += M_PI + floor(-r_z/M_PI)*M_PI;
 			}
 
 			// Reposition the mesh back
