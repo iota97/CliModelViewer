@@ -38,11 +38,28 @@ typedef struct vertex
 	float z;
 } vertex_t;
 
+// Translation
+static float t_x = 0;
+static float t_y = 0;
+static float t_z = 0;
+
+// Rotation
+static float r_x = 0;
+static float r_y = 0;
+static float r_z = 0;
+
+// Scale
+static float s_x = 1;
+static float s_y = 1;
+static float s_z = 1;
+
+// Vertex and tris counter
+static int tris_count = 0;
+static int vertex_count = 0;
 
 // Tris Buffer, one for applying transform
 static vertex_t *tris_buffer;
 static vertex_t *mesh_tris;
-static int tris_count = 0;
 
 // Screen and depth buffer
 static char screen[80][40];
@@ -53,22 +70,6 @@ static char material_array[] = {'a', 'b', 'c', 'd',
 				'e', 'f', 'g', 'h',
 				'i', 'j', 'k', 'l',
 				'm', 'n', 'o', 'p'};
-
-// Restore position
-void restore()
-{
-	for (int i = 0; i < tris_count; i++) 
-	{
-		for (int j = 0; j < 3; j++) 
-		{
-			tris_buffer[i*3+j].x = mesh_tris[i*3+j].x; 
-			tris_buffer[i*3+j].y = mesh_tris[i*3+j].y;
-			tris_buffer[i*3+j].z = mesh_tris[i*3+j].z;
-		}
-	}
-
-	return;
-}
 
 // Read the mesh file
 int parse_obj(char* path) 
@@ -83,11 +84,8 @@ int parse_obj(char* path)
 		return 1;
 	}	
 
-
 	// Cycle the file once to get the vertex and tris count
-	int vertex_count = 0;
-
-	while(fgets(line_buffer, 1024, (FILE*) mesh_file)) 
+	while(fgets(line_buffer, 1024, mesh_file)) 
 	{
 		// Count vertex and tris ammount
 		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
@@ -230,6 +228,37 @@ void clear()
 	return;
 }
 
+// Restore position
+void restore()
+{
+	// Restore translation, scale and rotation
+	t_x = 0;
+	t_y = -1;
+	t_z = -5;
+	r_x = 0;
+	r_y = 0;
+	r_z = 0;
+	s_x = 1;
+	s_y = 1;
+	s_z = 1;
+
+	// Restore the tris from the mesh one
+	for (int i = 0; i < tris_count; i++) 
+	{
+		for (int j = 0; j < 3; j++) 
+		{
+			tris_buffer[i*3+j].x = mesh_tris[i*3+j].x; 
+			tris_buffer[i*3+j].y = mesh_tris[i*3+j].y;
+			tris_buffer[i*3+j].z = mesh_tris[i*3+j].z;
+		}
+	}
+
+	// Translate for initial view
+	translate(0, -1, -5);
+
+	return;
+}
+
 // Render to screen buffer
 void render()
 {
@@ -286,34 +315,34 @@ void render()
 				for (int j = 0; j < 3; j++)
 				{
 					// Get the next vertex index
-					int j_n = (j == 2) ? 0 : j + 1;	
-					int j_nn = (j_n == 2) ? 0 : j_n + 1;
+					int j1 = (j == 2) ? 0 : j + 1;	
+					int j2 = (j1 == 2) ? 0 : j1 + 1;
 
 					// Handle vertical line
-					if (x_array[j] == x_array[j_n])
+					if (x_array[j] == x_array[j1])
 					{	
-						out += (x_array[j] < x_array[j_nn]) ? (x+1 < x_array[j]) : (x-1 > x_array[j]);
+						out += (x_array[j] < x_array[j2]) ? (x+1 < x_array[j]) : (x-1 > x_array[j]);
 					}
 					else 
 					{
 						// Handle horizzontal one
-						if (y_array[j] == y_array[j_n])
+						if (y_array[j] == y_array[j1])
 						{
-							out += (y_array[j] < y_array[j_nn]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
+							out += (y_array[j] < y_array[j2]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
 						}						
 						else
 						{ 
 							// Check if the pixel is in the same direction of the other vertex
-							if ((x_array[j_nn] - x_array[j])*(y_array[j_n] - y_array[j]) < 
-								(y_array[j_nn] - y_array[j])*(x_array[j_n] - x_array[j]))
+							if ((x_array[j2] - x_array[j])*(y_array[j1] - y_array[j]) < 
+								(y_array[j2] - y_array[j])*(x_array[j1] - x_array[j]))
 								
 								// Then
-								out += (x+1 - x_array[j])*(y_array[j_n] - y_array[j]) > 
-									(y+1 - y_array[j])*(x_array[j_n] - x_array[j]);
+								out += (x+1 - x_array[j])*(y_array[j1] - y_array[j]) > 
+									(y+1 - y_array[j])*(x_array[j1] - x_array[j]);
 							else 
 								// Else
-								out += (x-1 - x_array[j])*(y_array[j_n] - y_array[j]) < 
-									(y-1 - y_array[j])*(x_array[j_n] - x_array[j]);
+								out += (x-1 - x_array[j])*(y_array[j1] - y_array[j]) < 
+									(y-1 - y_array[j])*(x_array[j1] - x_array[j]);
 						}					
 					}
 				}
@@ -357,8 +386,8 @@ void render()
 // Clear the console
 void clear_screen()
 {	
-	// Print 256 new line
-	for (int i = 0; i < 256; i++)
+	// Print 172 new line
+	for (int i = 0; i < 172; i++)
 		printf("\n");
 
 	return;
@@ -382,6 +411,10 @@ void draw()
 		}
 		printf("\n");
 	}
+	
+	// Print status info
+	printf("T(%.2f, %.2f, %.2f); R(%.2f, %.2f, %.2f); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
+		t_x, t_y, t_z, r_x, r_y, r_z, s_x, s_y, s_z, vertex_count, tris_count);
 
 	return;
 }
@@ -394,7 +427,7 @@ void help()
 	clear_screen();
 
 	// Print usage instruction
-	printf("%s\n", help_message);
+	printf("%s\nPress ENTER to continue ", help_message);
 	
 	// Wait input to proceed
 	getchar();
@@ -404,21 +437,6 @@ void help()
 // Input loop
 void loop ()
 {
-	// Translation (-5 in Z, for initial view)
-	float t_x = 0;
-	float t_y = 0;
-	float t_z = -5;
-
-	// Rotation
-	float r_x = 0;
-	float r_y = 0;
-	float r_z = 0;
-
-	// Scale
-	float s_x = 1;
-	float s_y = 1;
-	float s_z = 1;
-
 	// Input variables
 	char command[64];	
 	float ammount = 0;
@@ -427,14 +445,6 @@ void loop ()
 	// Keep looping until user hit 'q'
 	for(;;)
 	{	
-		// Restore the mesh
-		restore();
-
-		// Set scale, rotation and positon
-		rotate(r_x, r_y, r_z);
-		scale(s_x, s_y, s_z);
-		translate(t_x, t_y, t_z);
-
 		// Render it
 		draw();
 
@@ -449,58 +459,88 @@ void loop ()
 		// Translation
 		else if (command[0] == 't')
 		{
-			
+			// Translate
 			if (command[1] == 'x')
+			{
+				translate(ammount, 0, 0);
 				t_x += ammount;
-			if (command[1] == 'y')
+			}
+			else if (command[1] == 'y')
+			{
+				translate(0, ammount, 0);
 				t_y += ammount;
-			if (command[1] == 'z')
+			}
+			else if (command[1] == 'z')
+			{
+				translate(0, 0, ammount);
 				t_z += ammount;
+			}
 		}
 
 		// Rotation
 		else if (command[0] == 'r')
 		{
+			// Reposition the mesh to center
+			translate(-t_x, -t_y, -t_z);	
 			
+			// Rotate
 			if (command[1] == 'x')
+			{
+				rotate(ammount, 0, 0);
 				r_x += ammount;
-			if (command[1] == 'y')
+			}
+			else if (command[1] == 'y')
+			{
+				rotate(0, ammount, 0);
 				r_y += ammount;
-			if (command[1] == 'z')
+			}
+			else if (command[1] == 'z')
+			{
+				rotate(0, 0, ammount);
 				r_z += ammount;
+			}
+
+			// Reposition the mesh back
+			translate(t_x, t_y, t_z);
 		}
 
 		// Scale
 		else if (command[0] == 's')
 		{
+			// Reposition the mesh to center
+			translate(-t_x, -t_y, -t_z);	
 			
+			// Scale
 			if (command[1] == 'x')
-				s_x *= ammount;
-			if (command[1] == 'y')
-				s_y *= ammount;
-			if (command[1] == 'z')
-				s_z *= ammount;
-			if (command[1] == 'a')
 			{
+				scale(ammount, 1, 1);
+				s_x *= ammount;
+			}
+			else if (command[1] == 'y')
+			{
+				scale(1, ammount, 1);
+				s_y *= ammount;
+			}
+			else if (command[1] == 'z')
+			{
+				scale(1, 1, ammount);
+				s_z *= ammount;
+			}
+			else if (command[1] == 'a')
+			{
+				scale(ammount, ammount, ammount);
 				s_x *= ammount;
 				s_y *= ammount;
 				s_z *= ammount;
 			}
+
+			// Reposition the mesh back
+			translate(t_x, t_y, t_z);
 		}
 
 		// Reset
 		else if (command[0] == 'm')
-		{
-			t_x = 0;
-			t_y = 0;
-			t_z = -5;
-			r_x = 0;
-			r_y = 0;
-			r_z = 0;
-			s_x = 1;
-			s_y = 1;
-			s_z = 1;
-		}
+			restore();
 
 		// Print help
 		else if (command[0] == 'h')
@@ -530,6 +570,9 @@ int main(int argc, char *argv[])
 	
 	// Print help message at start
 	help();	
+
+	// Restore the mesh
+	restore();
 
 	// Start the loop
 	loop();
