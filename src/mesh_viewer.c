@@ -1,8 +1,9 @@
 // CLI rasterization
 
-// use tris only .obj model with far away vertex (float precision)
+// use tris only .obj model
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 // Help message
@@ -38,9 +39,9 @@ typedef struct vertex
 } vertex_t;
 
 
-// A buffer with all tris
-static vertex_t tris_buffer[8192][3];
-static vertex_t mesh_tris[8192][3];
+// Tris Buffer, one for applying transform
+static vertex_t *tris_buffer;
+static vertex_t *mesh_tris;
 static int tris_count = 0;
 
 // Screen and depth buffer
@@ -60,9 +61,9 @@ void restore()
 	{
 		for (int j = 0; j < 3; j++) 
 		{
-			tris_buffer[i][j].x = mesh_tris[i][j].x; 
-			tris_buffer[i][j].y = mesh_tris[i][j].y;
-			tris_buffer[i][j].z = mesh_tris[i][j].z;
+			tris_buffer[i*3+j].x = mesh_tris[i*3+j].x; 
+			tris_buffer[i*3+j].y = mesh_tris[i*3+j].y;
+			tris_buffer[i*3+j].z = mesh_tris[i*3+j].z;
 		}
 	}
 
@@ -82,20 +83,41 @@ int parse_obj(char* path)
 		return 1;
 	}	
 
-	int vertex_index = 0;
-	vertex_t vertex_buffer[8192];
 
+	// Cycle the file once to get the vertex and tris count
+	int vertex_count = 0;
+
+	while(fgets(line_buffer, 1024, (FILE*) mesh_file)) 
+	{
+		// Count vertex and tris ammount
+		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
+			vertex_count++;
+		else if (line_buffer[0] == 'f' && line_buffer[1] == ' ') 
+			tris_count++;
+	}
+
+	// Alloc the memory
+	vertex_t *vertex_buffer = malloc(vertex_count * sizeof(vertex_t));
+	tris_buffer = malloc(tris_count * sizeof(vertex_t) * 3);
+	mesh_tris = malloc(tris_count * sizeof(vertex_t) * 3);
+
+	// Reset the counter and rewind the file
+	vertex_count = 0;
+	tris_count = 0;
+	rewind(mesh_file);
+
+	// Cycle again, reading the data
 	while(fgets(line_buffer, 1024, (FILE*) mesh_file)) 
 	{
 		// Read vertex data
 		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
 		{
 			sscanf(line_buffer, "%*s %f %f %f", 
-				&vertex_buffer[vertex_index].x, 
-				&vertex_buffer[vertex_index].y, 
-				&vertex_buffer[vertex_index].z);
+				&vertex_buffer[vertex_count].x, 
+				&vertex_buffer[vertex_count].y, 
+				&vertex_buffer[vertex_count].z);
 
-			vertex_index++;
+			vertex_count++;
 		}
 
 		// Read face data
@@ -106,15 +128,18 @@ int parse_obj(char* path)
 				 &a, &b, &c);
 
 			// Bind the right vertex
-			mesh_tris[tris_count][0] = vertex_buffer[a-1];
-			mesh_tris[tris_count][1] = vertex_buffer[b-1];
-			mesh_tris[tris_count][2] = vertex_buffer[c-1];
+			mesh_tris[tris_count*3+0] = vertex_buffer[a-1];
+			mesh_tris[tris_count*3+1] = vertex_buffer[b-1];
+			mesh_tris[tris_count*3+2] = vertex_buffer[c-1];
 			
 			// Increase the face count
 			tris_count++;
 		}
 
 	}
+
+	// Free the vertex buffer
+	free(vertex_buffer);
 
 	// Close the file
 	fclose(mesh_file);
@@ -128,9 +153,9 @@ void translate(float x, float y, float z)
 	{
 		for (int j = 0; j < 3; j++) 
 		{
-			tris_buffer[i][j].x += x; 
-			tris_buffer[i][j].y += y;
-			tris_buffer[i][j].z += z;
+			tris_buffer[i*3+j].x += x; 
+			tris_buffer[i*3+j].y += y;
+			tris_buffer[i*3+j].z += z;
 		}
 	}
 
@@ -144,9 +169,9 @@ void scale(float x, float y, float z)
 	{
 		for (int j = 0; j < 3; j++) 
 		{
-			tris_buffer[i][j].x *= x; 
-			tris_buffer[i][j].y *= y;
-			tris_buffer[i][j].z *= z;
+			tris_buffer[i*3+j].x *= x; 
+			tris_buffer[i*3+j].y *= y;
+			tris_buffer[i*3+j].z *= z;
 		}
 
 	}
@@ -165,25 +190,25 @@ void rotate(float x, float y, float z)
 			float tmp;
 			
 			// X
-			tmp = tris_buffer[i][j].y;
-			tris_buffer[i][j].y = cos(x) * tris_buffer[i][j].y -
-						sin(x) * tris_buffer[i][j].z;
-			tris_buffer[i][j].z = sin(x) * tmp +
-						cos(x) * tris_buffer[i][j].z; 
+			tmp = tris_buffer[i*3+j].y;
+			tris_buffer[i*3+j].y = cos(x) * tris_buffer[i*3+j].y -
+						sin(x) * tris_buffer[i*3+j].z;
+			tris_buffer[i*3+j].z = sin(x) * tmp +
+						cos(x) * tris_buffer[i*3+j].z; 
 
 			// Y
-			tmp = tris_buffer[i][j].x;
-			tris_buffer[i][j].x = cos(y) * tris_buffer[i][j].x -
-						sin(y) * tris_buffer[i][j].z;
-			tris_buffer[i][j].z = sin(y) * tmp +
-						cos(y) * tris_buffer[i][j].z; 
+			tmp = tris_buffer[i*3+j].x;
+			tris_buffer[i*3+j].x = cos(y) * tris_buffer[i*3+j].x -
+						sin(y) * tris_buffer[i*3+j].z;
+			tris_buffer[i*3+j].z = sin(y) * tmp +
+						cos(y) * tris_buffer[i*3+j].z; 
 			
 			// Z
-			tmp = tris_buffer[i][j].x;
-			tris_buffer[i][j].x = cos(z) * tris_buffer[i][j].x -
-						sin(z) * tris_buffer[i][j].y;
-			tris_buffer[i][j].y = sin(z) * tmp +
-						cos(z) * tris_buffer[i][j].y; 
+			tmp = tris_buffer[i*3+j].x;
+			tris_buffer[i*3+j].x = cos(z) * tris_buffer[i*3+j].x -
+						sin(z) * tris_buffer[i*3+j].y;
+			tris_buffer[i*3+j].y = sin(z) * tmp +
+						cos(z) * tris_buffer[i*3+j].y; 
 		}
 	}
 
@@ -217,14 +242,14 @@ void render()
 		
 		// Raster the vertex to screen
 		double x_array[] = {
-			(tris_buffer[i][0].x / tris_buffer[i][0].z * 80) + 80/2,
-			(tris_buffer[i][1].x / tris_buffer[i][1].z * 80) + 80/2,
-			(tris_buffer[i][2].x / tris_buffer[i][2].z * 80) + 80/2
+			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * 80) + 80/2,
+			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * 80) + 80/2,
+			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * 80) + 80/2
 		};
 		double y_array[] = {
-			(tris_buffer[i][0].y / tris_buffer[i][0].z * 40) + 40/2,
-			(tris_buffer[i][1].y / tris_buffer[i][1].z * 40) + 40/2,
-			(tris_buffer[i][2].y / tris_buffer[i][2].z * 40) + 40/2
+			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * 40) + 40/2,
+			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * 40) + 40/2,
+			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * 40) + 40/2
 		};
 
 		// Get the bounding coordinate of the tris
@@ -297,10 +322,11 @@ void render()
 				if (!out) 
 				{
 					// Interpolate the depth
-					float d=0;
+					float d = 0;
 					for (int j = 0; j < 3; j++)
 					{
-						d += tris_buffer[i][j].z/sqrt((x-x_array[j])*(x-x_array[j]) + (y-y_array[j])*(y-y_array[j]));
+						d += tris_buffer[i*3+j].z/sqrt((x-x_array[j])*(x-x_array[j]) +
+							(y-y_array[j])*(y-y_array[j]));
 					}
 					
 					// Test it
@@ -394,7 +420,6 @@ void loop ()
 	float s_z = 1;
 
 	// Input variables
-
 	char command[64];	
 	float ammount = 0;
 	int quit = 0;
@@ -508,6 +533,10 @@ int main(int argc, char *argv[])
 
 	// Start the loop
 	loop();
+	
+	// Free memory
+	free(mesh_tris);
+	free(tris_buffer);
 
 	// Exit
 	return 0;
