@@ -369,9 +369,9 @@ void render()
 					
 					// Use this distance to lerping vertex depth
 					float weight_sum = weight0 + weight1 + weight2;
-					weight0 /= weight_sum;
-					weight1 /= weight_sum;
-					weight2 /= weight_sum;
+					weight0 = (weight_sum - weight0)/weight_sum;
+					weight1 = (weight_sum - weight1)/weight_sum;
+					weight2 = (weight_sum - weight2)/weight_sum;
 
 					// Calculate the pixel depth
 					float pixel_depth = depth_array[0] * weight0 +
@@ -388,7 +388,7 @@ void render()
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
-						depth[x][y] =  pixel_depth;
+						depth[x][y] = pixel_depth;
 					}
 				}
 
@@ -463,7 +463,8 @@ void help()
 void loop ()
 {
 	// Input variables
-	char command[64];	
+	char command[64];
+	char last[2];	
 	float ammount = 0;
 	int quit = 0;
 
@@ -476,6 +477,13 @@ void loop ()
 		// Get input
 		fgets(command, 64, stdin);
 		sscanf(command, "%*s %f", &ammount);
+		
+		// If just enter, restore the previous one
+		if (command[0] == '\n')
+		{
+			command[0] = last[0];
+			command[1] = last[1];
+		}
 
 		// Quit
 		if (command[0] == 'q')
@@ -589,8 +597,9 @@ void loop ()
 		else if (command[0] == 'h')
 			help();	
 
-		// Reset command
-		command[0] = 0;
+		// Save last command
+		last[0] = command[0];
+		last[1] = command[1];
 	}
 
 	return;
