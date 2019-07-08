@@ -21,4 +21,5 @@ CLI mesh rasterizer - Use with .obj model made only of tris
 				  'ry 1' rotate on y axis of 1 rad
 				  'sa 0.5' scale all the axis by half
 				  'm' reset mesh to start status
-          
+
+			Press [Enter] to repeat the last command

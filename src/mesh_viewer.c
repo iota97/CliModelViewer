@@ -10,8 +10,6 @@
 char *help_message =
 	"CLI mesh rasterizer - Use with .obj model made only of tris	\n\
 									\n\
-	Syntax: mesh_viewer [path/to/mesh.obj]				\n\
-									\n\
 	In program syntax: [action][axis] [ammount]			\n\
 									\n\
 			action: t - translate				\n\
@@ -28,8 +26,9 @@ char *help_message =
 			Examples: 'tx -0.2' translate on x axis by -0.2 \n\
 				  'ry 1' rotate on y axis of 1 rad	\n\
 				  'sa 0.5' scale all the axis by half	\n\
-				  'm' reset mesh to start status	\n";
-
+				  'm' reset mesh to start status	\n\
+									\n\
+			Press [Enter] to repeat the last command	\n";
 // Vertex stuct
 typedef struct vertex 
 {
@@ -233,7 +232,7 @@ void restore()
 {
 	// Restore translation, scale and rotation
 	t_x = 0;
-	t_y = -1;
+	t_y = 0;
 	t_z = -5;
 	r_x = 0;
 	r_y = 0;
@@ -254,7 +253,7 @@ void restore()
 	}
 
 	// Translate for initial view
-	translate(0, -1, -5);
+	translate(0, 0, -5);
 
 	return;
 }
@@ -268,21 +267,8 @@ void render()
 
 	for (int i = 0; i < tris_count; i++) 
 	{
-		
-		// Raster the vertex to screen
-		double x_array[] = {
-			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * 80) + 80/2,
-			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * 80) + 80/2,
-			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * 80) + 80/2
-		};
-		double y_array[] = {
-			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * 40) + 40/2,
-			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * 40) + 40/2,
-			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * 40) + 40/2
-		};
-
 		// Calculate the depth of the vertex
-		double depth_array[] = {
+		float depth_array[] = {
 			-sqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
 				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
 				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z),
@@ -294,6 +280,18 @@ void render()
 			-sqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
 				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
 				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z),
+		};
+		
+		// Raster the vertex to screen
+		float x_array[] = {
+			(tris_buffer[i*3+0].x / depth_array[0] * 80) + 80/2,
+			(tris_buffer[i*3+1].x / depth_array[1] * 80) + 80/2,
+			(tris_buffer[i*3+2].x / depth_array[2] * 80) + 80/2
+		};
+		float y_array[] = {
+			(tris_buffer[i*3+0].y / depth_array[0] * 40) + 40/2,
+			(tris_buffer[i*3+1].y / depth_array[1] * 40) + 40/2,
+			(tris_buffer[i*3+2].y / depth_array[2] * 40) + 40/2
 		};
 
 		// Get the bounding coordinate of the tris
@@ -325,66 +323,30 @@ void render()
 		{
 			for (int x = min_x; x < max_x; x++) 
 			{
-				int out = 0;
+				// Calculate barycentric coordinate
+				float determinant = 1/((y_array[1]-y_array[2])*(x_array[0]-x_array[2]) +
+					(x_array[2]-x_array[1])*(y_array[0]-y_array[2]));
+				float lambda0 = ((y_array[1]-y_array[2])*(x+1-x_array[2]) +
+					(x_array[2]-x_array[1])*(y+1-y_array[2]))*determinant;
+				float lambda1 = ((y_array[2]-y_array[0])*(x+1-x_array[2]) +
+					(x_array[0]-x_array[2])*(y+1-y_array[2]))*determinant;
+				float lambda2 = 1 - lambda0 - lambda1;
 				
-				for (int j = 0; j < 3; j++)
+				// If is inside the triangle, render it
+				if (lambda0 >= 0 && lambda1 >= 0 && lambda2 >= 0) 
 				{
-					// Get the next vertex index
-					int j1 = (j == 2) ? 0 : j + 1;	
-					int j2 = (j1 == 2) ? 0 : j1 + 1;
+					// Interpolate the pixel depth
+					float pixel_depth = depth_array[0] * lambda0 +
+							depth_array[1] * lambda1 +
+							depth_array[2] * lambda2;
 
-					// Handle vertical line
-					if (x_array[j] == x_array[j1])
-					{	
-						out += (x_array[j] < x_array[j2]) ? (x+1 < x_array[j]) : (x-1 > x_array[j]);
-					}
-					
-					// Handle horizzontal one
-					else if (y_array[j] == y_array[j1])
-					{
-						out += (y_array[j] < y_array[j2]) ? (y+1 < y_array[j]) : (y-1 > y_array[j]);
-					}
-
-					// Handle oblique one		
-					else
-					{ 
-						// Check if pixel is in the same direction of the other vertex (same distance sign)
-						float angular_coefficient = (y_array[j1] - y_array[j])/(x_array[j1] - x_array[j]);
-
-						if (((y_array[j2] - y_array[j]) - (x_array[j2] - x_array[j]) * angular_coefficient) *
-							((y+1 - y_array[j]) - (x+1 - x_array[j]) * angular_coefficient) < 0)
-						{
-								out += 1;
-						}
-					}
-				}
-
-				// If is inside every line, render it
-				if (!out) 
-				{
-					// Calculate the distance of the pixel from every vertex
-					float weight0 = 1/sqrt((x-x_array[0])*(x-x_array[0])+(y-y_array[0])*(y-y_array[0]));
-					float weight1 = 1/sqrt((x-x_array[1])*(x-x_array[1])+(y-y_array[1])*(y-y_array[1]));
-					float weight2 = 1/sqrt((x-x_array[2])*(x-x_array[2])+(y-y_array[2])*(y-y_array[2]));
-					
-					// Use this distance to lerping vertex depth
-					float weight_sum = weight0 + weight1 + weight2;
-					weight0 /= weight_sum;
-					weight1 /= weight_sum;
-					weight2 /= weight_sum;
-
-					// Calculate the pixel depth
-					float pixel_depth = depth_array[0] * weight0 +
-							depth_array[1] * weight1 +
-							depth_array[2] * weight2;
-
-					// Avoid rendering behind the camera
-					float signed_depth = tris_buffer[0].z * weight0 +
-							tris_buffer[1].z * weight1 +
-							tris_buffer[2].z * weight2;
+					// Calculate an approximative signed depth
+					float approx_signed_depth = tris_buffer[i*3+0].z * lambda0 +
+								tris_buffer[i*3+1].z * lambda1 +
+								tris_buffer[i*3+2].z * lambda2;
 
 					// Test it
-					if (depth[x][y] < pixel_depth && signed_depth < -1)
+					if (depth[x][y] < pixel_depth && approx_signed_depth < -1)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
