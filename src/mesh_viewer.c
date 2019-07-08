@@ -363,15 +363,15 @@ void render()
 				if (!out) 
 				{
 					// Calculate the distance of the pixel from every vertex
-					float weight0 = sqrt((x-x_array[0])*(x-x_array[0])+(y-y_array[0])*(y-y_array[0]));
-					float weight1 = sqrt((x-x_array[1])*(x-x_array[1])+(y-y_array[1])*(y-y_array[1]));
-					float weight2 = sqrt((x-x_array[2])*(x-x_array[2])+(y-y_array[2])*(y-y_array[2]));
+					float weight0 = 1/sqrt((x-x_array[0])*(x-x_array[0])+(y-y_array[0])*(y-y_array[0]));
+					float weight1 = 1/sqrt((x-x_array[1])*(x-x_array[1])+(y-y_array[1])*(y-y_array[1]));
+					float weight2 = 1/sqrt((x-x_array[2])*(x-x_array[2])+(y-y_array[2])*(y-y_array[2]));
 					
 					// Use this distance to lerping vertex depth
 					float weight_sum = weight0 + weight1 + weight2;
-					weight0 = (weight_sum - weight0)/weight_sum;
-					weight1 = (weight_sum - weight1)/weight_sum;
-					weight2 = (weight_sum - weight2)/weight_sum;
+					weight0 /= weight_sum;
+					weight1 /= weight_sum;
+					weight2 /= weight_sum;
 
 					// Calculate the pixel depth
 					float pixel_depth = depth_array[0] * weight0 +
