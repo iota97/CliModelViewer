@@ -1,7 +1,5 @@
 // CLI rasterization
 
-// use tris only .obj model
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -207,9 +205,8 @@ void rotate_x(float x)
 		for (int j = 0; j < 3; j++) 
 		{
 			// Back up float
-			float tmp;
+			float tmp = tris_buffer[i*3+j].y;
 			
-			tmp = tris_buffer[i*3+j].y;
 			tris_buffer[i*3+j].y = cos(x) * tris_buffer[i*3+j].y -
 						sin(x) * tris_buffer[i*3+j].z;
 			tris_buffer[i*3+j].z = sin(x) * tmp +
@@ -228,9 +225,8 @@ void rotate_y(float y)
 		for (int j = 0; j < 3; j++) 
 		{
 			// Back up float
-			float tmp;
+			float tmp = tris_buffer[i*3+j].x;
 			
-			tmp = tris_buffer[i*3+j].x;
 			tris_buffer[i*3+j].x = cos(y) * tris_buffer[i*3+j].x -
 						sin(y) * tris_buffer[i*3+j].z;
 			tris_buffer[i*3+j].z = sin(y) * tmp +
@@ -249,9 +245,8 @@ void rotate_z(float z)
 		for (int j = 0; j < 3; j++) 
 		{
 			// Back up float
-			float tmp;
+			float tmp = tris_buffer[i*3+j].x;
 			
-			tmp = tris_buffer[i*3+j].x;
 			tris_buffer[i*3+j].x = cos(z) * tris_buffer[i*3+j].x -
 						sin(z) * tris_buffer[i*3+j].y;
 			tris_buffer[i*3+j].y = sin(z) * tmp +
