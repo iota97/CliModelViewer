@@ -1,6 +1,6 @@
 # CliModelViewer
 
-CLI mesh rasterizer - Use with .obj model made only of tris
+CLI mesh rasterizer - Use with .obj model format
 
 	Syntax: mesh_viewer [path/to/mesh.obj]
 		

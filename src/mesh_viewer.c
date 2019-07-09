@@ -8,7 +8,7 @@
 
 // Help message
 char *help_message =
-	"CLI mesh rasterizer - Use with .obj model made only of tris	\n\
+	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
 									\n\
@@ -29,6 +29,7 @@ char *help_message =
 				  'm' reset mesh to start status	\n\
 									\n\
 			Press [Enter] to repeat the last command	\n";
+
 // Vertex stuct
 typedef struct vertex 
 {
@@ -89,8 +90,20 @@ int parse_obj(char* path)
 		// Count vertex and tris ammount
 		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
 			vertex_count++;
-		else if (line_buffer[0] == 'f' && line_buffer[1] == ' ') 
-			tris_count++;
+		else if (line_buffer[0] == 'f' && line_buffer[1] == ' ')
+		{
+			// Parse the vertex per face
+			int a, b, c, d;
+			int vertex_number = sscanf(line_buffer,
+				"%*s %u/%*s %u/%*s %u/%*s %u",
+				&a, &b, &c, &d);
+			
+			// If is a quad then count 2 tris
+			if (vertex_number == 4)
+				tris_count += 2;
+			else
+				tris_count += 1;
+		}
 	}
 
 	// Alloc the memory
@@ -120,9 +133,11 @@ int parse_obj(char* path)
 		// Read face data
 		if (line_buffer[0] == 'f' && line_buffer[1] == ' ') 
 		{
-			int a, b, c;
-			sscanf(line_buffer, "%*s %u/%*s %u/%*s %u",
-				 &a, &b, &c);
+			// Parse the vertex per face
+			int a, b, c, d;
+			int vertex_number = sscanf(line_buffer,
+				"%*s %u/%*s %u/%*s %u/%*s %u",
+				&a, &b, &c, &d);
 
 			// Bind the right vertex
 			mesh_tris[tris_count*3+0] = vertex_buffer[a-1];
@@ -131,8 +146,16 @@ int parse_obj(char* path)
 			
 			// Increase the face count
 			tris_count++;
-		}
 
+			// If is a quad then bind another tris
+			if (vertex_number == 4)
+			{
+				mesh_tris[tris_count*3+0] = vertex_buffer[c-1];
+				mesh_tris[tris_count*3+1] = vertex_buffer[d-1];
+				mesh_tris[tris_count*3+2] = vertex_buffer[a-1];
+				tris_count++;
+			}
+		}
 	}
 
 	// Free the vertex buffer
@@ -176,8 +199,8 @@ void scale(float x, float y, float z)
 	return;
 }
 
-// Rotate the mesh
-void rotate(float x, float y, float z)
+// Rotate the mesh on X axis
+void rotate_x(float x)
 {
 	for (int i = 0; i < tris_count; i++) 
 	{
@@ -186,21 +209,48 @@ void rotate(float x, float y, float z)
 			// Back up float
 			float tmp;
 			
-			// X
 			tmp = tris_buffer[i*3+j].y;
 			tris_buffer[i*3+j].y = cos(x) * tris_buffer[i*3+j].y -
 						sin(x) * tris_buffer[i*3+j].z;
 			tris_buffer[i*3+j].z = sin(x) * tmp +
-						cos(x) * tris_buffer[i*3+j].z; 
+						cos(x) * tris_buffer[i*3+j].z;
+		}
+	}
 
-			// Y
+	return;
+}
+
+// Rotate the mesh on Y axis
+void rotate_y(float y)
+{
+	for (int i = 0; i < tris_count; i++) 
+	{
+		for (int j = 0; j < 3; j++) 
+		{
+			// Back up float
+			float tmp;
+			
 			tmp = tris_buffer[i*3+j].x;
 			tris_buffer[i*3+j].x = cos(y) * tris_buffer[i*3+j].x -
 						sin(y) * tris_buffer[i*3+j].z;
 			tris_buffer[i*3+j].z = sin(y) * tmp +
 						cos(y) * tris_buffer[i*3+j].z; 
+		}
+	}
+
+	return;
+}
+
+// Rotate the mesh on Z axis
+void rotate_z(float z)
+{
+	for (int i = 0; i < tris_count; i++) 
+	{
+		for (int j = 0; j < 3; j++) 
+		{
+			// Back up float
+			float tmp;
 			
-			// Z
 			tmp = tris_buffer[i*3+j].x;
 			tris_buffer[i*3+j].x = cos(z) * tris_buffer[i*3+j].x -
 						sin(z) * tris_buffer[i*3+j].y;
@@ -318,14 +368,16 @@ void render()
 		min_x = (min_x < 0) ? 0 : min_x;
 		min_y = (min_y < 0) ? 0 : min_y;
 		
+		// Calculate the determinant for barycentric coordinate
+		float determinant = 1/((y_array[1]-y_array[2])*(x_array[0]-x_array[2]) +
+					(x_array[2]-x_array[1])*(y_array[0]-y_array[2]));
+
 		// Test only the pixel in this area
 		for (int y = min_y; y < max_y; y++) 
 		{
 			for (int x = min_x; x < max_x; x++) 
 			{
 				// Calculate barycentric coordinate
-				float determinant = 1/((y_array[1]-y_array[2])*(x_array[0]-x_array[2]) +
-					(x_array[2]-x_array[1])*(y_array[0]-y_array[2]));
 				float lambda0 = ((y_array[1]-y_array[2])*(x+1-x_array[2]) +
 					(x_array[2]-x_array[1])*(y+1-y_array[2]))*determinant;
 				float lambda1 = ((y_array[2]-y_array[0])*(x+1-x_array[2]) +
@@ -353,9 +405,7 @@ void render()
 						depth[x][y] = pixel_depth;
 					}
 				}
-
-			}
-			
+			}			
 		}
 
 		// Render next face with another material
@@ -481,7 +531,7 @@ void loop ()
 			// Rotate
 			if (command[1] == 'x')
 			{
-				rotate(ammount, 0, 0);
+				rotate_x(ammount);
 				r_x += ammount;
 
 				// Display rotation between -PI and PI
@@ -492,7 +542,7 @@ void loop ()
 			}
 			else if (command[1] == 'y')
 			{
-				rotate(0, ammount, 0);
+				rotate_y(ammount);
 				r_y += ammount;
 
 				// Display rotation between -PI and PI
@@ -503,7 +553,7 @@ void loop ()
 			}
 			else if (command[1] == 'z')
 			{
-				rotate(0, 0, ammount);
+				rotate_z(ammount);
 				r_z += ammount;
 
 				// Display rotation between -PI and PI
