@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 // Help message
 char *help_message =
@@ -27,6 +26,120 @@ char *help_message =
 				  'm' reset mesh to start status	\n\
 									\n\
 			Press [Enter] to repeat the last command	\n";
+
+// Math functions
+#define PI 3.14159265359f
+
+// Normalize rotation between 0 and 2PI
+float normalized_angle(float x)
+{
+	if (x < 0)
+		x += 2*PI + 2*PI*(int)(-x/(2*PI));
+	else 
+		x -= 2*PI*(int)(x/(2*PI));
+
+	return x;
+}	
+
+// Sine
+float sine(float x)
+{
+	// Normalize the rotation
+	x = normalized_angle(x);
+		
+	// Check sign
+	float sign;
+	if (x < PI)
+		sign = 1;
+	else
+		sign = -1;
+
+	// Check symmetry
+	if (x < PI/2 || (x > PI && x < 3*PI/2))
+		x -= (PI/2)*(int)(x/(PI/2));
+	else
+		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
+
+	// Check it to be below 45 degree
+	if (x < PI/4)
+	{
+		// Polinomial approximation
+		float x2 = x*x;
+		float x3 = x2*x;
+		float sine = x - x3/6 + x2*x3/120;
+
+		return sine*sign;
+	}
+	else
+	{
+		// Transform to cosine
+		x = PI/2 - x;
+
+		// Polinomial approximation
+		float x2 = x*x;
+		float x4 = x2*x2;
+		float x6 = x2*x4;
+		float cosine = 1 - x2/2 + x4/24 - x6/720;
+
+		return cosine*sign;
+	}
+}
+
+// Cosine
+float cosine(float x)
+{
+	// Normalize the rotation
+	x = normalized_angle(x);
+		
+	// Check sign
+	float sign;
+	if (x < PI/2 || x > 3*PI/2)
+		sign = 1;
+	else
+		sign = -1;
+
+	// Check symmetry
+	if (x < PI/2 || (x > PI && x < 3*PI/2))
+		x -= (PI/2)*(int)(x/(PI/2));
+	else
+		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
+
+	// Check it to be below 45 degree
+	if (x < PI/4)
+	{
+		// Polinomial approximation
+		float x2 = x*x;
+		float x4 = x2*x2;
+		float x6 = x2*x4;
+		float cosine = 1 - x2/2 + x4/24 - x6/720;
+
+		return cosine*sign;
+	}
+	else
+	{
+		// Transform to sine
+		x = PI/2 - x;
+
+		// Polinomial approximation
+		float x2 = x*x;
+		float x3 = x2*x;
+		float sine = x - x3/6 + x2*x3/120;
+
+		return sine*sign;
+	}
+}
+
+// Negative square root
+float negsqrt(float x, float guess)
+{
+	// Get closer with every interation
+	for (int i = 0; i < 6; i++)
+	{
+		guess = guess/2 + x/(2*guess);
+	}
+
+	return -guess;
+}
 
 // Vertex stuct
 typedef struct vertex 
@@ -207,10 +320,10 @@ void rotate_x(float x)
 			// Back up float
 			float tmp = tris_buffer[i*3+j].y;
 			
-			tris_buffer[i*3+j].y = cos(x) * tris_buffer[i*3+j].y -
-						sin(x) * tris_buffer[i*3+j].z;
-			tris_buffer[i*3+j].z = sin(x) * tmp +
-						cos(x) * tris_buffer[i*3+j].z;
+			tris_buffer[i*3+j].y = cosine(x) * tris_buffer[i*3+j].y -
+						sine(x) * tris_buffer[i*3+j].z;
+			tris_buffer[i*3+j].z = sine(x) * tmp +
+						cosine(x) * tris_buffer[i*3+j].z;
 		}
 	}
 
@@ -227,10 +340,10 @@ void rotate_y(float y)
 			// Back up float
 			float tmp = tris_buffer[i*3+j].x;
 			
-			tris_buffer[i*3+j].x = cos(y) * tris_buffer[i*3+j].x -
-						sin(y) * tris_buffer[i*3+j].z;
-			tris_buffer[i*3+j].z = sin(y) * tmp +
-						cos(y) * tris_buffer[i*3+j].z; 
+			tris_buffer[i*3+j].x = cosine(y) * tris_buffer[i*3+j].x -
+						sine(y) * tris_buffer[i*3+j].z;
+			tris_buffer[i*3+j].z = sine(y) * tmp +
+						cosine(y) * tris_buffer[i*3+j].z; 
 		}
 	}
 
@@ -247,10 +360,10 @@ void rotate_z(float z)
 			// Back up float
 			float tmp = tris_buffer[i*3+j].x;
 			
-			tris_buffer[i*3+j].x = cos(z) * tris_buffer[i*3+j].x -
-						sin(z) * tris_buffer[i*3+j].y;
-			tris_buffer[i*3+j].y = sin(z) * tmp +
-						cos(z) * tris_buffer[i*3+j].y; 
+			tris_buffer[i*3+j].x = cosine(z) * tris_buffer[i*3+j].x -
+						sine(z) * tris_buffer[i*3+j].y;
+			tris_buffer[i*3+j].y = sine(z) * tmp +
+						cosine(z) * tris_buffer[i*3+j].y; 
 		}
 	}
 
@@ -314,17 +427,20 @@ void render()
 	{
 		// Calculate the depth of the vertex
 		float depth_array[] = {
-			-sqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
+			negsqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
 				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
-				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z),
+				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z,
+				-tris_buffer[i*3+0].z),
 
-			-sqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
+			negsqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
 				tris_buffer[i*3+1].y*tris_buffer[i*3+1].y +
-				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z),
+				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z,
+				-tris_buffer[i*3+0].z),
 
-			-sqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
+			negsqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
 				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
-				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z),
+				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z,
+				-tris_buffer[i*3+0].z),
 		};
 		
 		// Raster the vertex to screen
@@ -529,33 +645,24 @@ void loop ()
 				rotate_x(ammount);
 				r_x += ammount;
 
-				// Display rotation between -PI and PI
-				if (r_x > M_PI)
-					r_x -= M_PI + floor(r_x/M_PI)*M_PI;
-				else if (r_x < -M_PI)
-					r_x += M_PI + floor(-r_x/M_PI)*M_PI;
+				// Display rotation between 0 and 2PI
+				r_x = normalized_angle(r_x);
 			}
 			else if (command[1] == 'y')
 			{
 				rotate_y(ammount);
 				r_y += ammount;
 
-				// Display rotation between -PI and PI
-				if (r_y > M_PI)
-					r_y -= M_PI + floor(r_y/M_PI)*M_PI;
-				else if (r_y < -M_PI)
-					r_y += M_PI + floor(-r_y/M_PI)*M_PI;
+				// Display rotation between 0 and 2PI
+				r_y = normalized_angle(r_y);
 			}
 			else if (command[1] == 'z')
 			{
 				rotate_z(ammount);
 				r_z += ammount;
 
-				// Display rotation between -PI and PI
-				if (r_z > M_PI)
-					r_z -= M_PI + floor(r_z/M_PI)*M_PI;
-				else if (r_z < -M_PI)
-					r_z += M_PI + floor(-r_z/M_PI)*M_PI;
+				// Display rotation between 0 and 2PI
+				r_z = normalized_angle(r_z);
 			}
 
 			// Reposition the mesh back
