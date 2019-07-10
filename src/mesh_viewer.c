@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 // Help message
-char *help_message =
+char help_message[] =
 	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
@@ -34,7 +34,7 @@ char *help_message =
 float normalized_angle(float x)
 {
 	if (x < 0)
-		x += 2*PI + 2*PI*(int)(-x/(2*PI));
+		x += 2*PI*((int)(-x/(2*PI))+1);
 	else 
 		x -= 2*PI*(int)(x/(2*PI));
 
@@ -132,7 +132,9 @@ float cosine(float x)
 // Negative square root
 float negsqrt(float x, float guess)
 {
-	// Get closer with every interation
+	guess *= -1;
+
+	// Get closer with every iteration
 	for (int i = 0; i < 6; i++)
 	{
 		guess = guess/2 + x/(2*guess);
@@ -218,9 +220,9 @@ int parse_obj(char* path)
 	}
 
 	// Alloc the memory
-	vertex_t *vertex_buffer = malloc(vertex_count * sizeof(vertex_t));
-	tris_buffer = malloc(tris_count * sizeof(vertex_t) * 3);
-	mesh_tris = malloc(tris_count * sizeof(vertex_t) * 3);
+	vertex_t *vertex_buffer = (vertex_t*) malloc(vertex_count * sizeof(vertex_t));
+	tris_buffer = (vertex_t*) malloc(tris_count * sizeof(vertex_t) * 3);
+	mesh_tris = (vertex_t*) malloc(tris_count * sizeof(vertex_t) * 3);
 
 	// Reset the counter and rewind the file
 	vertex_count = 0;
@@ -228,7 +230,7 @@ int parse_obj(char* path)
 	rewind(mesh_file);
 
 	// Cycle again, reading the data
-	while(fgets(line_buffer, 1024, (FILE*) mesh_file)) 
+	while(fgets(line_buffer, 1024, mesh_file)) 
 	{
 		// Read vertex data
 		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
@@ -430,17 +432,17 @@ void render()
 			negsqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
 				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
 				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z,
-				-tris_buffer[i*3+0].z),
+				tris_buffer[i*3+0].z),
 
 			negsqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
 				tris_buffer[i*3+1].y*tris_buffer[i*3+1].y +
 				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z,
-				-tris_buffer[i*3+0].z),
+				tris_buffer[i*3+0].z),
 
 			negsqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
 				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
 				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z,
-				-tris_buffer[i*3+0].z),
+				tris_buffer[i*3+0].z),
 		};
 		
 		// Raster the vertex to screen
@@ -561,8 +563,9 @@ void draw()
 	}
 	
 	// Print status info
-	printf("T(%.2f, %.2f, %.2f); R(%.2f, %.2f, %.2f); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
-		t_x, t_y, t_z, r_x, r_y, r_z, s_x, s_y, s_z, vertex_count, tris_count);
+	printf("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
+		t_x, t_y, t_z, (int)(r_x*180/PI), (int)(r_y*180/PI), (int)(r_z*180/PI),
+		s_x, s_y, s_z, vertex_count, tris_count);
 
 	return;
 }
@@ -587,7 +590,7 @@ void loop ()
 {
 	// Input variables
 	char command[64];
-	char last[2];	
+	char last[2] = "\0";
 	float ammount = 0;
 	int quit = 0;
 
@@ -637,31 +640,34 @@ void loop ()
 		else if (command[0] == 'r')
 		{
 			// Reposition the mesh to center
-			translate(-t_x, -t_y, -t_z);	
+			translate(-t_x, -t_y, -t_z);
+
+			// Convert from degree to radian
+			float angle = ammount*PI/180;
 			
 			// Rotate
 			if (command[1] == 'x')
 			{
-				rotate_x(ammount);
-				r_x += ammount;
+				rotate_x(angle);
+				r_x += angle;
 
-				// Display rotation between 0 and 2PI
+				// Display rotation between 0 and 360
 				r_x = normalized_angle(r_x);
 			}
 			else if (command[1] == 'y')
 			{
-				rotate_y(ammount);
-				r_y += ammount;
+				rotate_y(angle);
+				r_y += angle;
 
-				// Display rotation between 0 and 2PI
+				// Display rotation between 0 and 360
 				r_y = normalized_angle(r_y);
 			}
 			else if (command[1] == 'z')
 			{
-				rotate_z(ammount);
-				r_z += ammount;
+				rotate_z(angle);
+				r_z += angle;
 
-				// Display rotation between 0 and 2PI
+				// Display rotation between 0 and 360
 				r_z = normalized_angle(r_z);
 			}
 
