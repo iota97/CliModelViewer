@@ -18,7 +18,7 @@ CLI mesh rasterizer - Use with .obj model format
 			ammount: float value				
 									
 			Examples: 'tx -0.2' translate on x axis by -0.2 
-				  'ry 1' rotate on y axis of 1 rad
+				  'ry 90' rotate on y axis by 90 degree
 				  'sa 0.5' scale all the axis by half
 				  'm' reset mesh to start status
 

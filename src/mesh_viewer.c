@@ -21,7 +21,7 @@ char help_message[] =
 			ammount: float value				\n\
 									\n\
 			Examples: 'tx -0.2' translate on x axis by -0.2 \n\
-				  'ry 1' rotate on y axis of 1 rad	\n\
+				  'ry 90' rotate on y axis by 90 degree	\n\
 				  'sa 0.5' scale all the axis by half	\n\
 				  'm' reset mesh to start status	\n\
 									\n\
