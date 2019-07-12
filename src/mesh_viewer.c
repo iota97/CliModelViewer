@@ -586,13 +586,12 @@ void help()
 }
 
 // Input loop
-void loop ()
+void loop()
 {
 	// Input variables
 	char command[64];
 	char last[2] = "\0";
 	float ammount = 0;
-	int quit = 0;
 
 	// Keep looping until user hit 'q'
 	for(;;)
