@@ -30,6 +30,12 @@ const char* help_message =
 // Math const
 #define PI 3.14159265359f
 
+// Configs
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT SCREEN_WIDTH/2
+#define NEAR_PLANE -1
+#define FAR_PLANE -8192
+
 // Vertex stuct
 typedef struct vertex 
 {
@@ -62,8 +68,8 @@ static vertex_t *tris_buffer;
 static vertex_t *mesh_tris;
 
 // Screen and depth buffer
-static char screen[80][40];
-static float depth[80][40];
+static char screen[SCREEN_WIDTH][SCREEN_HEIGHT];
+static float depth[SCREEN_WIDTH][SCREEN_HEIGHT];
 
 // Material array of char
 static char material_array[] = {'a', 'b', 'c', 'd', 
@@ -168,18 +174,6 @@ float cosine(float x)
 
 		return sine*sign;
 	}
-}
-
-// Negative square root
-float negsqrt(float x, float guess)
-{
-	// Get closer with every iteration
-	for (int i = 0; i < 6; i++)
-	{
-		guess = guess/2 + x/(2*guess);
-	}
-
-	return -guess;
 }
 
 // Read the mesh file
@@ -373,12 +367,12 @@ void rotate_z(float z)
 // Clear the screen and depth buffer
 void clear_buffer()
 {
-	for (int i = 0; i < 80; i++)
+	for (int i = 0; i < SCREEN_WIDTH; i++)
 	{
-		for (int j = 0; j < 40; j++)
+		for (int j = 0; j < SCREEN_HEIGHT; j++)
 		{
 			screen[i][j] = ' ';
-			depth[i][j] = -8192;
+			depth[i][j] = FAR_PLANE;
 		}
 	}
 
@@ -425,39 +419,21 @@ void render_to_buffer()
 
 	for (int i = 0; i < tris_count; i++) 
 	{
-		// Calculate the depth of the vertex
-		float depth_array[] = {
-			negsqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
-				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
-				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z,
-				-tris_buffer[i*3+0].z),
-
-			negsqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
-				tris_buffer[i*3+1].y*tris_buffer[i*3+1].y +
-				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z,
-				-tris_buffer[i*3+0].z),
-
-			negsqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
-				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
-				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z,
-				-tris_buffer[i*3+0].z),
-		};
-		
 		// Raster the vertex to screen
 		float x_array[] = {
-			(tris_buffer[i*3+0].x / depth_array[0] * 80) + 80/2,
-			(tris_buffer[i*3+1].x / depth_array[1] * 80) + 80/2,
-			(tris_buffer[i*3+2].x / depth_array[2] * 80) + 80/2
+			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_HEIGHT,
+			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_HEIGHT,
+			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_HEIGHT
 		};
 		float y_array[] = {
-			(tris_buffer[i*3+0].y / depth_array[0] * 40) + 40/2,
-			(tris_buffer[i*3+1].y / depth_array[1] * 40) + 40/2,
-			(tris_buffer[i*3+2].y / depth_array[2] * 40) + 40/2
+			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4,
+			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4,
+			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4
 		};
 
 		// Get the bounding coordinate of the tris
-		int min_x = 80;
-		int min_y = 40;
+		int min_x = SCREEN_WIDTH;
+		int min_y = SCREEN_HEIGHT;
 		int max_x = 0;
 		int max_y = 0;
 
@@ -474,8 +450,8 @@ void render_to_buffer()
 		}
 		
 		// Check boundaries
-		max_x = (max_x > 80) ? 80 : max_x;
-		max_y = (max_y > 40) ? 40 : max_y;
+		max_x = (max_x > SCREEN_WIDTH) ? SCREEN_WIDTH : max_x;
+		max_y = (max_y > SCREEN_HEIGHT) ? SCREEN_HEIGHT : max_y;
 		min_x = (min_x < 0) ? 0 : min_x;
 		min_y = (min_y < 0) ? 0 : min_y;
 		
@@ -498,18 +474,13 @@ void render_to_buffer()
 				// If is inside the triangle, render it
 				if (lambda0 >= 0 && lambda1 >= 0 && lambda2 >= 0) 
 				{
-					// Interpolate the pixel depth
-					float pixel_depth = depth_array[0] * lambda0 +
-							depth_array[1] * lambda1 +
-							depth_array[2] * lambda2;
-
 					// Interpolate Z value
-					float z_plane = tris_buffer[i*3+0].z * lambda0 +
+					float pixel_depth = tris_buffer[i*3+0].z * lambda0 +
 								tris_buffer[i*3+1].z * lambda1 +
 								tris_buffer[i*3+2].z * lambda2;
 
-					// Test depth and near plane
-					if (depth[x][y] < pixel_depth && z_plane < -1)
+					// Test depth buffer and near plane
+					if (depth[x][y] < pixel_depth && pixel_depth < NEAR_PLANE)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
@@ -551,9 +522,9 @@ void draw()
 	clear_screen();
 
 	// Print it
-	for (int j = 0; j < 40; j++) 
+	for (int j = 0; j < SCREEN_HEIGHT; j++) 
 	{
-		for (int i = 0; i < 80; i++) 
+		for (int i = 0; i < SCREEN_WIDTH; i++) 
 		{
 			printf("%c", screen[i][j]);
 		}
@@ -731,7 +702,6 @@ void free_tris()
 
 	return;
 }
-
 
 // Main
 int main(int argc, char *argv[]) 
