@@ -27,8 +27,49 @@ char help_message[] =
 									\n\
 			Press [Enter] to repeat the last command	\n";
 
-// Math functions
+// Math const
 #define PI 3.14159265359f
+
+// Vertex stuct
+typedef struct vertex 
+{
+	float x;
+	float y;
+	float z;
+} vertex_t;
+
+// Translation
+static float t_x = 0;
+static float t_y = 0;
+static float t_z = 0;
+
+// Rotation
+static float r_x = 0;
+static float r_y = 0;
+static float r_z = 0;
+
+// Scale
+static float s_x = 1;
+static float s_y = 1;
+static float s_z = 1;
+
+// Vertex and tris counter
+static int tris_count = 0;
+static int vertex_count = 0;
+
+// Tris Buffer, one for applying transform
+static vertex_t *tris_buffer;
+static vertex_t *mesh_tris;
+
+// Screen and depth buffer
+static char screen[80][40];
+static float depth[80][40];
+
+// Material array of char
+static char material_array[] = {'a', 'b', 'c', 'd', 
+				'e', 'f', 'g', 'h',
+				'i', 'j', 'k', 'l',
+				'm', 'n', 'o', 'p'};
 
 // Normalize rotation between 0 and 2PI
 float normalized_angle(float x)
@@ -132,8 +173,6 @@ float cosine(float x)
 // Negative square root
 float negsqrt(float x, float guess)
 {
-	guess *= -1;
-
 	// Get closer with every iteration
 	for (int i = 0; i < 6; i++)
 	{
@@ -142,47 +181,6 @@ float negsqrt(float x, float guess)
 
 	return -guess;
 }
-
-// Vertex stuct
-typedef struct vertex 
-{
-	float x;
-	float y;
-	float z;
-} vertex_t;
-
-// Translation
-static float t_x = 0;
-static float t_y = 0;
-static float t_z = 0;
-
-// Rotation
-static float r_x = 0;
-static float r_y = 0;
-static float r_z = 0;
-
-// Scale
-static float s_x = 1;
-static float s_y = 1;
-static float s_z = 1;
-
-// Vertex and tris counter
-static int tris_count = 0;
-static int vertex_count = 0;
-
-// Tris Buffer, one for applying transform
-static vertex_t *tris_buffer;
-static vertex_t *mesh_tris;
-
-// Screen and depth buffer
-static char screen[80][40];
-static float depth[80][40];
-
-// Material array of char
-static char material_array[] = {'a', 'b', 'c', 'd', 
-				'e', 'f', 'g', 'h',
-				'i', 'j', 'k', 'l',
-				'm', 'n', 'o', 'p'};
 
 // Read the mesh file
 int parse_obj(char* path) 
@@ -373,7 +371,7 @@ void rotate_z(float z)
 }
 
 // Clear the screen and depth buffer
-void clear()
+void clear_buffer()
 {
 	for (int i = 0; i < 80; i++)
 	{
@@ -388,7 +386,7 @@ void clear()
 }
 
 // Restore position
-void restore()
+void restore_mesh()
 {
 	// Restore translation, scale and rotation
 	t_x = 0;
@@ -419,10 +417,10 @@ void restore()
 }
 
 // Render to screen buffer
-void render()
+void render_to_buffer()
 {
 	// Clear before start
-	clear();
+	clear_buffer();
 	int material_index = 0;
 
 	for (int i = 0; i < tris_count; i++) 
@@ -432,17 +430,17 @@ void render()
 			negsqrt(tris_buffer[i*3+0].x*tris_buffer[i*3+0].x +
 				tris_buffer[i*3+0].y*tris_buffer[i*3+0].y +
 				tris_buffer[i*3+0].z*tris_buffer[i*3+0].z,
-				tris_buffer[i*3+0].z),
+				-tris_buffer[i*3+0].z),
 
 			negsqrt(tris_buffer[i*3+1].x*tris_buffer[i*3+1].x +
 				tris_buffer[i*3+1].y*tris_buffer[i*3+1].y +
 				tris_buffer[i*3+1].z*tris_buffer[i*3+1].z,
-				tris_buffer[i*3+0].z),
+				-tris_buffer[i*3+0].z),
 
 			negsqrt(tris_buffer[i*3+2].x*tris_buffer[i*3+2].x +
 				tris_buffer[i*3+2].y*tris_buffer[i*3+2].y +
 				tris_buffer[i*3+2].z*tris_buffer[i*3+2].z,
-				tris_buffer[i*3+0].z),
+				-tris_buffer[i*3+0].z),
 		};
 		
 		// Raster the vertex to screen
@@ -505,13 +503,13 @@ void render()
 							depth_array[1] * lambda1 +
 							depth_array[2] * lambda2;
 
-					// Calculate an approximative signed depth
-					float approx_signed_depth = tris_buffer[i*3+0].z * lambda0 +
+					// Interpolate Z value
+					float z_plane = tris_buffer[i*3+0].z * lambda0 +
 								tris_buffer[i*3+1].z * lambda1 +
 								tris_buffer[i*3+2].z * lambda2;
 
-					// Test it
-					if (depth[x][y] < pixel_depth && approx_signed_depth < -1)
+					// Test depth and near plane
+					if (depth[x][y] < pixel_depth && z_plane < -1)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
@@ -547,7 +545,7 @@ void clear_screen()
 void draw()
 {
 	// Render to buffer
-	render();
+	render_to_buffer();
 	
 	// Clear the console
 	clear_screen();
@@ -572,7 +570,7 @@ void draw()
 
 // Help message
 
-void help()
+void show_help()
 {
 	// Clear the console
 	clear_screen();
@@ -586,15 +584,16 @@ void help()
 }
 
 // Input loop
-void loop()
+void loop_input()
 {
 	// Input variables
 	char command[64];
 	char last[2] = "\0";
 	float ammount = 0;
+	int quit = 0;
 
 	// Keep looping until user hit 'q'
-	for(;;)
+	while(!quit)
 	{	
 		// Render it
 		draw();
@@ -612,7 +611,7 @@ void loop()
 
 		// Quit
 		if (command[0] == 'q')
-			break;
+			quit = 1;
 
 		// Translation
 		else if (command[0] == 't')
@@ -710,11 +709,11 @@ void loop()
 
 		// Reset
 		else if (command[0] == 'm')
-			restore();
+			restore_mesh();
 
 		// Print help
 		else if (command[0] == 'h')
-			help();	
+			show_help();	
 
 		// Save last command
 		last[0] = command[0];
@@ -723,6 +722,17 @@ void loop()
 
 	return;
 }
+
+// Free tris memory
+void free_tris()
+{ 
+	// Free memory
+	free(mesh_tris);
+	free(tris_buffer);
+
+	return;
+}
+
 
 // Main
 int main(int argc, char *argv[]) 
@@ -740,17 +750,16 @@ int main(int argc, char *argv[])
 		return 2;
 	
 	// Print help message at start
-	help();	
+	show_help();	
 
 	// Restore the mesh
-	restore();
+	restore_mesh();
 
 	// Start the loop
-	loop();
+	loop_input();
 	
 	// Free memory
-	free(mesh_tris);
-	free(tris_buffer);
+	free_tris();
 
 	// Exit
 	return 0;
