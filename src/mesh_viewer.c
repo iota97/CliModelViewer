@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 // Help message
-char help_message[] =
+const char* help_message =
 	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
@@ -569,7 +569,6 @@ void draw()
 }
 
 // Help message
-
 void show_help()
 {
 	// Clear the console
