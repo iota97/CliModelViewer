@@ -421,14 +421,14 @@ void render_to_buffer()
 	{
 		// Raster the vertex to screen
 		float x_array[] = {
-			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_HEIGHT,
-			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_HEIGHT,
-			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_HEIGHT
+			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
+			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
+			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_WIDTH/2
 		};
 		float y_array[] = {
-			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4,
-			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4,
-			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * SCREEN_HEIGHT) + SCREEN_WIDTH/4
+			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2,
+			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2,
+			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2
 		};
 
 		// Get the bounding coordinate of the tris
