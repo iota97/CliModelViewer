@@ -11,7 +11,7 @@
 #define FAR_PLANE 8192
 
 // Help message
-static const char* HELP_MESSAGE =
+static const char* const HELP_MESSAGE =
 	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
