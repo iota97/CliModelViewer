@@ -3,8 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Configs
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 40
+#define FONT_RATEO 0.5
+#define NEAR_PLANE 1
+#define FAR_PLANE 8192
+
 // Help message
-static const char* help_message =
+static const char* HELP_MESSAGE =
 	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
@@ -29,16 +36,6 @@ static const char* help_message =
 
 // Math const
 #define PI 3.14159265359f
-
-// Configs
-#define SCREEN_WIDTH 80
-#define SCREEN_HEIGHT 40
-#define FONT_RATEO 0.5
-#define NEAR_PLANE 1
-#define FAR_PLANE 8192
-
-// Calculate the screen rateo
-static float SCREEN_RATEO = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
 
 // Vertex stuct
 typedef struct vertex 
@@ -80,6 +77,9 @@ static char material_array[] = {'a', 'b', 'c', 'd',
 				'e', 'f', 'g', 'h',
 				'i', 'j', 'k', 'l',
 				'm', 'n', 'o', 'p'};
+
+// Calculate the screen rateo
+static const float SCREEN_RATEO = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
 
 // Normalize rotation between 0 and 2PI
 float normalized_angle(float x)
@@ -551,7 +551,7 @@ void show_help()
 	clear_screen();
 
 	// Print usage instruction
-	printf("%s\nPress ENTER to continue ", help_message);
+	printf("%s\nPress ENTER to continue ", HELP_MESSAGE);
 	
 	// Wait input to proceed
 	getchar();
