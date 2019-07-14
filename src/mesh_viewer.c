@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 // Help message
-const char* help_message =
+static const char* help_message =
 	"CLI mesh rasterizer - Use with .obj model format		\n\
 									\n\
 	In program syntax: [action][axis] [ammount]			\n\
@@ -32,9 +32,13 @@ const char* help_message =
 
 // Configs
 #define SCREEN_WIDTH 80
-#define SCREEN_HEIGHT SCREEN_WIDTH/2
-#define NEAR_PLANE -1
-#define FAR_PLANE -8192
+#define SCREEN_HEIGHT 40
+#define FONT_RATEO 0.5
+#define NEAR_PLANE 1
+#define FAR_PLANE 8192
+
+// Calculate the screen rateo
+static float SCREEN_RATEO = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
 
 // Vertex stuct
 typedef struct vertex 
@@ -102,7 +106,7 @@ float sine(float x)
 		sign = -1;
 
 	// Check symmetry
-	if (x < PI/2 || (x > PI && x < 3*PI/2))
+	if (x < PI/2 || (x >= PI && x < 3*PI/2))
 		x -= (PI/2)*(int)(x/(PI/2));
 	else
 		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
@@ -140,13 +144,13 @@ float cosine(float x)
 		
 	// Check sign
 	float sign;
-	if (x < PI/2 || x > 3*PI/2)
+	if (x < PI/2 || x >= 3*PI/2)
 		sign = 1;
 	else
 		sign = -1;
 
 	// Check symmetry
-	if (x < PI/2 || (x > PI && x < 3*PI/2))
+	if (x < PI/2 || (x >= PI && x < 3*PI/2))
 		x -= (PI/2)*(int)(x/(PI/2));
 	else
 		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
@@ -278,7 +282,7 @@ void translate(float x, float y, float z)
 	{
 		for (int j = 0; j < 3; j++) 
 		{
-			tris_buffer[i*3+j].x += x; 
+			tris_buffer[i*3+j].x -= x; 
 			tris_buffer[i*3+j].y += y;
 			tris_buffer[i*3+j].z += z;
 		}
@@ -354,10 +358,10 @@ void rotate_z(float z)
 			// Back up float
 			float tmp = tris_buffer[i*3+j].x;
 			
-			tris_buffer[i*3+j].x = cosine(z) * tris_buffer[i*3+j].x -
-						sine(z) * tris_buffer[i*3+j].y;
-			tris_buffer[i*3+j].y = sine(z) * tmp +
-						cosine(z) * tris_buffer[i*3+j].y; 
+			tris_buffer[i*3+j].x = cosine(-z) * tris_buffer[i*3+j].x -
+						sine(-z) * tris_buffer[i*3+j].y;
+			tris_buffer[i*3+j].y = sine(-z) * tmp +
+						cosine(-z) * tris_buffer[i*3+j].y; 
 		}
 	}
 
@@ -385,7 +389,7 @@ void restore_mesh()
 	// Restore translation, scale and rotation
 	t_x = 0;
 	t_y = 0;
-	t_z = -5;
+	t_z = 5;
 	r_x = 0;
 	r_y = 0;
 	r_z = 0;
@@ -404,8 +408,9 @@ void restore_mesh()
 		}
 	}
 
-	// Translate for initial view
-	translate(0, 0, -5);
+	// Rotate and translate for initial view
+	rotate_y(PI);
+	translate(0, 0, 5);
 
 	return;
 }
@@ -421,14 +426,14 @@ void render_to_buffer()
 	{
 		// Raster the vertex to screen
 		float x_array[] = {
-			(tris_buffer[i*3+0].x / tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
-			(tris_buffer[i*3+1].x / tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
-			(tris_buffer[i*3+2].x / tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_WIDTH/2
+			(tris_buffer[i*3+0].x / -tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
+			(tris_buffer[i*3+1].x / -tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
+			(tris_buffer[i*3+2].x / -tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_WIDTH/2
 		};
 		float y_array[] = {
-			(tris_buffer[i*3+0].y / tris_buffer[i*3+0].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2,
-			(tris_buffer[i*3+1].y / tris_buffer[i*3+1].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2,
-			(tris_buffer[i*3+2].y / tris_buffer[i*3+2].z * SCREEN_HEIGHT) + SCREEN_HEIGHT/2
+			(tris_buffer[i*3+0].y / -tris_buffer[i*3+0].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2,
+			(tris_buffer[i*3+1].y / -tris_buffer[i*3+1].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2,
+			(tris_buffer[i*3+2].y / -tris_buffer[i*3+2].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2
 		};
 
 		// Get the bounding coordinate of the tris
@@ -439,14 +444,14 @@ void render_to_buffer()
 
 		for (int j = 0; j < 3; j++)
 		{
-			if (x_array[j] < min_x)
-				min_x = x_array[j];
-			if (x_array[j] > max_x)
-				max_x = x_array[j];
-			if (y_array[j] < min_y)
-				min_y = y_array[j];
-			if (y_array[j] > max_y)
-				max_y = y_array[j];
+			if ((int) x_array[j] < min_x)
+				min_x = (int) x_array[j];
+			if ((int) x_array[j] > max_x)
+				max_x = (int) x_array[j];
+			if ((int) y_array[j] < min_y)
+				min_y = (int) y_array[j];
+			if ((int) y_array[j] > max_y)
+				max_y = (int) y_array[j];
 		}
 		
 		// Check boundaries
@@ -480,7 +485,7 @@ void render_to_buffer()
 								tris_buffer[i*3+2].z * lambda2;
 
 					// Test depth buffer and near plane
-					if (depth[x][y] < pixel_depth && pixel_depth < NEAR_PLANE)
+					if (depth[x][y] > pixel_depth && pixel_depth > NEAR_PLANE)
 					{
 						// Update both buffer
 						screen[x][y] = material_array[material_index];
