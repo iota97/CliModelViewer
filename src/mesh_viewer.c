@@ -513,8 +513,8 @@ void render_to_buffer()
 // Clear the console
 void clear_screen()
 {	
-	// Print 172 new line
-	for (int i = 0; i < 172; i++)
+	// Print 64 new line
+	for (int i = 0; i < 64; i++)
 		putchar('\n');
 
 	return;
@@ -584,6 +584,9 @@ void free_buffer()
 // Create depth and screen buffer
 void create_buffer(int width, int height)
 {
+	// Reserve 2 line for status info
+	height -= 2;
+
 	// Check width and height to be more than zero
 	if (width <= 0 || height <= 0)
 		return;
