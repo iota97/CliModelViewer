@@ -12,27 +12,28 @@
 
 // Help message
 static const char* const HELP_MESSAGE =
-	"CLI mesh rasterizer - Use with .obj model format		\n\
+	"Command syntax:						\n\
 									\n\
-	In program syntax: [action][axis] [ammount]			\n\
+	t[axis] [ammount] - translate					\n\
+	r[axis] [ammount] - rotate					\n\
+	s[axis] [ammount] - scale					\n\
+	h - help							\n\
+	m - reset							\n\
+	q - quit							\n\
+	v [widht]x[height] - set viewport size				\n\
 									\n\
-			action: t - translate				\n\
-				r - rotate				\n\
-				s - scale				\n\
-				q - quit				\n\
-				m - reset				\n\
-				h - help				\n\
+	axis: x, y, z, a - all (scale only) 				\n\
 									\n\
-			axis: x, y, z, a - all (scale only) 		\n\
+	ammount: float value						\n\
 									\n\
-			ammount: float value				\n\
+	Examples: 'tx -0.2' translate on x axis by -0.2 		\n\
+		  'ry 90' rotate on y axis by 90 degree			\n\
+		  'sa 0.5' scale all the axis by half			\n\
+		  'v 80x40' set vieport to 80x40 (default)		\n\
 									\n\
-			Examples: 'tx -0.2' translate on x axis by -0.2 \n\
-				  'ry 90' rotate on y axis by 90 degree	\n\
-				  'sa 0.5' scale all the axis by half	\n\
-				  'm' reset mesh to start status	\n\
+	Press [Enter] to repeat the last command			\n\
 									\n\
-			Press [Enter] to repeat the last command	\n";
+	Press ENTER to continue						";
 
 // Math const
 #define PI 3.14159265359f
@@ -69,17 +70,19 @@ static vertex_t *tris_buffer;
 static vertex_t *mesh_tris;
 
 // Screen and depth buffer
-static char screen[SCREEN_WIDTH][SCREEN_HEIGHT];
-static float depth[SCREEN_WIDTH][SCREEN_HEIGHT];
+static int buffer_width = SCREEN_WIDTH;
+static int buffer_height = SCREEN_HEIGHT;
+static char *screen = NULL;
+static float *depth = NULL;
+
+// Calculate the screen rateo
+static float screen_rateo = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
 
 // Material array of char
 static char material_array[] = {'a', 'b', 'c', 'd', 
 				'e', 'f', 'g', 'h',
 				'i', 'j', 'k', 'l',
 				'm', 'n', 'o', 'p'};
-
-// Calculate the screen rateo
-static const float SCREEN_RATEO = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
 
 // Normalize rotation between 0 and 2PI
 float normalized_angle(float x)
@@ -371,12 +374,12 @@ void rotate_z(float z)
 // Clear the screen and depth buffer
 void clear_buffer()
 {
-	for (int i = 0; i < SCREEN_WIDTH; i++)
+	for (int i = 0; i < buffer_width; i++)
 	{
-		for (int j = 0; j < SCREEN_HEIGHT; j++)
+		for (int j = 0; j < buffer_height; j++)
 		{
-			screen[i][j] = ' ';
-			depth[i][j] = FAR_PLANE;
+			screen[i+j*buffer_width] = ' ';
+			depth[i+j*buffer_width] = FAR_PLANE;
 		}
 	}
 
@@ -426,37 +429,37 @@ void render_to_buffer()
 	{
 		// Raster the vertex to screen
 		float x_array[] = {
-			(tris_buffer[i*3+0].x / -tris_buffer[i*3+0].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
-			(tris_buffer[i*3+1].x / -tris_buffer[i*3+1].z * SCREEN_WIDTH) + SCREEN_WIDTH/2,
-			(tris_buffer[i*3+2].x / -tris_buffer[i*3+2].z * SCREEN_WIDTH) + SCREEN_WIDTH/2
+			(tris_buffer[i*3+0].x / -tris_buffer[i*3+0].z * buffer_width) + buffer_width/2,
+			(tris_buffer[i*3+1].x / -tris_buffer[i*3+1].z * buffer_width) + buffer_width/2,
+			(tris_buffer[i*3+2].x / -tris_buffer[i*3+2].z * buffer_width) + buffer_width/2
 		};
 		float y_array[] = {
-			(tris_buffer[i*3+0].y / -tris_buffer[i*3+0].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2,
-			(tris_buffer[i*3+1].y / -tris_buffer[i*3+1].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2,
-			(tris_buffer[i*3+2].y / -tris_buffer[i*3+2].z * SCREEN_HEIGHT)*SCREEN_RATEO + SCREEN_HEIGHT/2
+			(tris_buffer[i*3+0].y / -tris_buffer[i*3+0].z * buffer_height)*screen_rateo + buffer_height/2,
+			(tris_buffer[i*3+1].y / -tris_buffer[i*3+1].z * buffer_height)*screen_rateo + buffer_height/2,
+			(tris_buffer[i*3+2].y / -tris_buffer[i*3+2].z * buffer_height)*screen_rateo + buffer_height/2
 		};
 
 		// Get the bounding coordinate of the tris
-		int min_x = SCREEN_WIDTH;
-		int min_y = SCREEN_HEIGHT;
+		int min_x = buffer_width;
+		int min_y = buffer_height;
 		int max_x = 0;
 		int max_y = 0;
 
 		for (int j = 0; j < 3; j++)
 		{
-			if ((int) x_array[j] < min_x)
-				min_x = (int) x_array[j];
-			if ((int) x_array[j] > max_x)
-				max_x = (int) x_array[j];
-			if ((int) y_array[j] < min_y)
-				min_y = (int) y_array[j];
-			if ((int) y_array[j] > max_y)
-				max_y = (int) y_array[j];
+			if (x_array[j] < min_x)
+				min_x = x_array[j];
+			if (x_array[j] > max_x)
+				max_x = x_array[j];
+			if (y_array[j] < min_y)
+				min_y = y_array[j];
+			if (y_array[j] > max_y)
+				max_y = y_array[j];
 		}
 		
 		// Check boundaries
-		max_x = (max_x > SCREEN_WIDTH) ? SCREEN_WIDTH : max_x;
-		max_y = (max_y > SCREEN_HEIGHT) ? SCREEN_HEIGHT : max_y;
+		max_x = (max_x > buffer_width) ? buffer_width : max_x;
+		max_y = (max_y > buffer_height) ? buffer_height : max_y;
 		min_x = (min_x < 0) ? 0 : min_x;
 		min_y = (min_y < 0) ? 0 : min_y;
 		
@@ -485,11 +488,11 @@ void render_to_buffer()
 								tris_buffer[i*3+2].z * lambda2;
 
 					// Test depth buffer and near plane
-					if (depth[x][y] > pixel_depth && pixel_depth > NEAR_PLANE)
+					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE)
 					{
 						// Update both buffer
-						screen[x][y] = material_array[material_index];
-						depth[x][y] = pixel_depth;
+						screen[x+y*buffer_width] = material_array[material_index];
+						depth[x+y*buffer_width] = pixel_depth;
 					}
 				}
 			}			
@@ -512,7 +515,7 @@ void clear_screen()
 {	
 	// Print 172 new line
 	for (int i = 0; i < 172; i++)
-		printf("\n");
+		putchar('\n');
 
 	return;
 }
@@ -527,13 +530,13 @@ void draw()
 	clear_screen();
 
 	// Print it
-	for (int j = 0; j < SCREEN_HEIGHT; j++) 
+	for (int j = 0; j < buffer_height; j++) 
 	{
-		for (int i = 0; i < SCREEN_WIDTH; i++) 
+		for (int i = 0; i < buffer_width; i++) 
 		{
-			printf("%c", screen[i][j]);
+			putchar(screen[i+j*buffer_width]);
 		}
-		printf("\n");
+		putchar('\n');
 	}
 	
 	// Print status info
@@ -551,10 +554,55 @@ void show_help()
 	clear_screen();
 
 	// Print usage instruction
-	printf("%s\nPress ENTER to continue ", HELP_MESSAGE);
+	puts(HELP_MESSAGE);
 	
 	// Wait input to proceed
 	getchar();
+	return;
+}
+
+// Free tris memory
+void free_tris()
+{ 
+	// Free memory
+	free(mesh_tris);
+	free(tris_buffer);
+
+	return;
+}
+
+// Free buffer
+void free_buffer()
+{ 
+	// Free memory
+	free(screen);
+	free(depth);
+
+	return;
+}
+
+// Create depth and screen buffer
+void create_buffer(int width, int height)
+{
+	// Check width and height to be more than zero
+	if (width <= 0 || height <= 0)
+		return;
+
+	// Free old buffer if present
+	if (screen != NULL)
+		free_buffer();
+
+	// Allocate new one
+	screen = (char*) malloc(sizeof(char) * width * height);
+	depth = (float*) malloc(sizeof(float) * width * height);
+
+	// Set global buffer size
+	buffer_width = width;
+	buffer_height = height;
+
+	// Update screen rateo
+	screen_rateo = (float)buffer_width/buffer_height*FONT_RATEO;
+
 	return;
 }
 
@@ -564,7 +612,7 @@ void loop_input()
 	// Input variables
 	char command[64];
 	char last[2] = "\0";
-	float ammount = 0;
+	float ammount = 1;
 	int quit = 0;
 
 	// Keep looping until user hit 'q'
@@ -575,21 +623,36 @@ void loop_input()
 
 		// Get input
 		fgets(command, 64, stdin);
-		sscanf(command, "%*s %f", &ammount);
-		
-		// If just enter, restore the previous one
-		if (command[0] == '\n')
-		{
-			command[0] = last[0];
-			command[1] = last[1];
-		}
 
 		// Quit
 		if (command[0] == 'q')
 			quit = 1;
 
+		// Viewport resize
+		else if (command[0] == 'v')
+		{
+			// Try to parse width and height
+			int width, height;
+
+			if (sscanf(command, "%*s %dx%d", &width, &height) == 2)
+			{
+				// Recreate a new buffer
+				create_buffer(width, height);
+			}
+		}
+		
+		// If just enter, restore the previous one
+		else if (command[0] == '\n')
+		{
+			command[0] = last[0];
+			command[1] = last[1];
+		}
+
+		// Parse the ammount
+		sscanf(command, "%*s %f", &ammount);
+
 		// Translation
-		else if (command[0] == 't')
+		if (command[0] == 't')
 		{
 			// Translate
 			if (command[1] == 'x')
@@ -698,16 +761,6 @@ void loop_input()
 	return;
 }
 
-// Free tris memory
-void free_tris()
-{ 
-	// Free memory
-	free(mesh_tris);
-	free(tris_buffer);
-
-	return;
-}
-
 // Main
 int main(int argc, char *argv[]) 
 {
@@ -715,7 +768,7 @@ int main(int argc, char *argv[])
 	// Check argument number
 	if (argc < 2) 
 	{		
-		printf("Please provide the model path.\n");
+		puts("Please provide the model path.\n");
 		return 1;	
 	}
 
@@ -729,11 +782,15 @@ int main(int argc, char *argv[])
 	// Restore the mesh
 	restore_mesh();
 
+	// Allocate rendering buffer
+	create_buffer(SCREEN_WIDTH, SCREEN_HEIGHT);
+
 	// Start the loop
 	loop_input();
 	
 	// Free memory
 	free_tris();
+	free_buffer();
 
 	// Exit
 	return 0;
