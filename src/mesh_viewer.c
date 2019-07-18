@@ -5,7 +5,7 @@
 
 // Configs
 #define SCREEN_WIDTH 80
-#define SCREEN_HEIGHT 40
+#define SCREEN_HEIGHT 24
 #define FONT_RATEO 0.5
 #define NEAR_PLANE 1
 #define FAR_PLANE 8192
@@ -29,7 +29,7 @@ static const char* const HELP_MESSAGE =
 	Examples: 'tx -0.2' translate on x axis by -0.2 		\n\
 		  'ry 90' rotate on y axis by 90 degree			\n\
 		  'sa 0.5' scale all the axis by half			\n\
-		  'v 80x40' set vieport to 80x40 (default)		\n\
+		  'v 80x24' set vieport to 80x24 (default)		\n\
 									\n\
 	Press [Enter] to repeat the last command			\n\
 									\n\
