@@ -458,8 +458,8 @@ void render_to_buffer()
 		}
 		
 		// Check boundaries
-		max_x = (max_x > buffer_width) ? buffer_width : max_x;
-		max_y = (max_y > buffer_height) ? buffer_height : max_y;
+		max_x = (max_x > buffer_width-1) ? buffer_width-1 : max_x;
+		max_y = (max_y > buffer_height-1) ? buffer_height-1 : max_y;
 		min_x = (min_x < 0) ? 0 : min_x;
 		min_y = (min_y < 0) ? 0 : min_y;
 		
