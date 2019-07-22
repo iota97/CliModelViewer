@@ -468,15 +468,15 @@ void render_to_buffer()
 					(x_array[2]-x_array[1])*(y_array[0]-y_array[2]));
 
 		// Test only the pixel in this area
-		for (int y = min_y; y < max_y; y++) 
+		for (int y = min_y; y <= max_y; y++) 
 		{
-			for (int x = min_x; x < max_x; x++) 
+			for (int x = min_x; x <= max_x; x++) 
 			{
 				// Calculate barycentric coordinate
-				float lambda0 = ((y_array[1]-y_array[2])*(x+1-x_array[2]) +
-					(x_array[2]-x_array[1])*(y+1-y_array[2]))*determinant;
-				float lambda1 = ((y_array[2]-y_array[0])*(x+1-x_array[2]) +
-					(x_array[0]-x_array[2])*(y+1-y_array[2]))*determinant;
+				float lambda0 = ((y_array[1]-y_array[2])*(x-x_array[2]) +
+					(x_array[2]-x_array[1])*(y-y_array[2]))*determinant;
+				float lambda1 = ((y_array[2]-y_array[0])*(x-x_array[2]) +
+					(x_array[0]-x_array[2])*(y-y_array[2]))*determinant;
 				float lambda2 = 1 - lambda0 - lambda1;
 				
 				// If is inside the triangle, render it
