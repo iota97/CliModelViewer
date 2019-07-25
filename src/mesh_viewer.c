@@ -7,7 +7,7 @@
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 24
 #define FONT_RATEO 0.5
-#define NEAR_PLANE 0.02
+#define NEAR_PLANE 1
 #define FAR_PLANE 8192
 
 // Help message
