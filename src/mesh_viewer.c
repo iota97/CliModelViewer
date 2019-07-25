@@ -501,7 +501,7 @@ void render_to_buffer()
 								tris_buffer[i*3+2].z * lambda2;
 
 					// Test depth buffer and near plane
-					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE+1)
+					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE)
 					{
 						// Update both buffer
 						screen[x+y*buffer_width] = material_array[material_index];
