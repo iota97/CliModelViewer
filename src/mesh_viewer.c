@@ -7,7 +7,7 @@
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 24
 #define FONT_RATEO 0.5
-#define NEAR_PLANE 1
+#define NEAR_PLANE 0.02
 #define FAR_PLANE 8192
 
 // Help message
@@ -66,8 +66,8 @@ static int tris_count = 0;
 static int vertex_count = 0;
 
 // Tris Buffer, one for applying transform
-static vertex_t *tris_buffer;
-static vertex_t *mesh_tris;
+static vertex_t *tris_buffer = NULL;
+static vertex_t *mesh_tris = NULL;
 
 // Screen and depth buffer
 static int buffer_width = SCREEN_WIDTH;
@@ -428,20 +428,33 @@ void render_to_buffer()
 	for (int i = 0; i < tris_count; i++) 
 	{
 		// Raster the vertex to screen
-		float x_array[] = {
-			(tris_buffer[i*3+0].x / -tris_buffer[i*3+0].z * buffer_width) + buffer_width/2,
-			(tris_buffer[i*3+1].x / -tris_buffer[i*3+1].z * buffer_width) + buffer_width/2,
-			(tris_buffer[i*3+2].x / -tris_buffer[i*3+2].z * buffer_width) + buffer_width/2
+		float x_array[] = 
+		{
+			tris_buffer[i*3+0].z < 0 ? -1 :
+				(tris_buffer[i*3+0].x / -tris_buffer[i*3+0].z * buffer_width) + buffer_width/2,
+
+			tris_buffer[i*3+1].z < 0 ? -1 :
+				(tris_buffer[i*3+1].x / -tris_buffer[i*3+1].z * buffer_width) + buffer_width/2,
+
+			tris_buffer[i*3+2].z < 0 ? -1 :
+				(tris_buffer[i*3+2].x / -tris_buffer[i*3+2].z * buffer_width) + buffer_width/2
 		};
-		float y_array[] = {
-			(tris_buffer[i*3+0].y / -tris_buffer[i*3+0].z * buffer_height)*screen_rateo + buffer_height/2,
-			(tris_buffer[i*3+1].y / -tris_buffer[i*3+1].z * buffer_height)*screen_rateo + buffer_height/2,
-			(tris_buffer[i*3+2].y / -tris_buffer[i*3+2].z * buffer_height)*screen_rateo + buffer_height/2
+
+		float y_array[] = 
+		{
+			tris_buffer[i*3+0].z < 0 ? -1 :
+				(tris_buffer[i*3+0].y / -tris_buffer[i*3+0].z * buffer_height)*screen_rateo + buffer_height/2, 
+
+			tris_buffer[i*3+1].z < 0 ? -1 :
+				(tris_buffer[i*3+1].y / -tris_buffer[i*3+1].z * buffer_height)*screen_rateo + buffer_height/2,
+
+			tris_buffer[i*3+2].z < 0 ? -1 :
+				(tris_buffer[i*3+2].y / -tris_buffer[i*3+2].z * buffer_height)*screen_rateo + buffer_height/2
 		};
 
 		// Get the bounding coordinate of the tris
-		int min_x = buffer_width;
-		int min_y = buffer_height;
+		int min_x = buffer_width-1;
+		int min_y = buffer_height-1;
 		int max_x = 0;
 		int max_y = 0;
 
@@ -488,7 +501,7 @@ void render_to_buffer()
 								tris_buffer[i*3+2].z * lambda2;
 
 					// Test depth buffer and near plane
-					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE)
+					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE+1)
 					{
 						// Update both buffer
 						screen[x+y*buffer_width] = material_array[material_index];
@@ -591,9 +604,8 @@ void create_buffer(int width, int height)
 	if (width <= 0 || height <= 0)
 		return;
 
-	// Free old buffer if present
-	if (screen != NULL)
-		free_buffer();
+	// Free old buffer
+	free_buffer();
 
 	// Allocate new one
 	screen = (char*) malloc(sizeof(char) * width * height);
