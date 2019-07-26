@@ -47,19 +47,19 @@ typedef struct vertex
 } vertex_t;
 
 // Translation
-static float t_x = 0;
-static float t_y = 0;
-static float t_z = 0;
+static float translation_x = 0;
+static float translation_y = 0;
+static float translation_z = 0;
 
 // Rotation
-static float r_x = 0;
-static float r_y = 0;
-static float r_z = 0;
+static float rotation_x = 0;
+static float rotation_y = 0;
+static float rotation_z = 0;
 
 // Scale
-static float s_x = 1;
-static float s_y = 1;
-static float s_z = 1;
+static float scale_x = 1;
+static float scale_y = 1;
+static float scale_z = 1;
 
 // Vertex and tris counter
 static int tris_count = 0;
@@ -205,22 +205,30 @@ int parse_obj(char* path)
 	// Cycle the file once to get the vertex and tris count
 	while(fgets(line_buffer, 1024, mesh_file)) 
 	{
-		// Count vertex and tris ammount
+		// Count vertex
 		if (line_buffer[0] == 'v' && line_buffer[1] == ' ') 
 			vertex_count++;
+		
+		// Count tris
 		else if (line_buffer[0] == 'f' && line_buffer[1] == ' ')
 		{
-			// Parse the vertex per face
-			int a, b, c, d;
-			int vertex_number = sscanf(line_buffer,
-				"%*s %u/%*s %u/%*s %u/%*s %u",
-				&a, &b, &c, &d);
+			// Parse the first tris
+			sscanf(line_buffer, "%*s %*s %*s %*s %[^\n]", line_buffer);
+
+			// Increase tris count
+			tris_count++;
 			
-			// If is a quad then count 2 tris
-			if (vertex_number == 4)
-				tris_count += 2;
-			else
-				tris_count += 1;
+			// Parse other tris if the face have more vertex
+			int test_vertex;
+			while (sscanf(line_buffer, "%u/", &test_vertex) == 1)
+			{
+				// Increase tris count
+				tris_count++;
+
+				// Remove already parsed face and keep looping if other are present
+				if (sscanf(line_buffer, "%*s %[^\n]", line_buffer) != 1)
+					break;
+			}
 		}
 	}
 
@@ -249,29 +257,38 @@ int parse_obj(char* path)
 		}
 
 		// Read face data
-		if (line_buffer[0] == 'f' && line_buffer[1] == ' ') 
+		else if (line_buffer[0] == 'f' && line_buffer[1] == ' ') 
 		{
-			// Parse the vertex per face
-			int a, b, c, d;
-			int vertex_number = sscanf(line_buffer,
-				"%*s %u/%*s %u/%*s %u/%*s %u",
-				&a, &b, &c, &d);
+			// Parse the first tris
+			int vertex0, vertex1, vertex2;
+			sscanf(line_buffer, "%*s %u/%*s %u/%*s %u/%*s %[^\n]",
+				&vertex0, &vertex1, &vertex2, line_buffer);
 
-			// Bind the right vertex
-			mesh_tris[tris_count*3+0] = vertex_buffer[a-1];
-			mesh_tris[tris_count*3+1] = vertex_buffer[b-1];
-			mesh_tris[tris_count*3+2] = vertex_buffer[c-1];
-			
-			// Increase the face count
+			// Bind the vertex
+			mesh_tris[tris_count*3+0] = vertex_buffer[vertex0-1];
+			mesh_tris[tris_count*3+1] = vertex_buffer[vertex1-1];
+			mesh_tris[tris_count*3+2] = vertex_buffer[vertex2-1];
+
+			// Increase tris count
 			tris_count++;
-
-			// If is a quad then bind another tris
-			if (vertex_number == 4)
+			
+			// Parse other tris if the face have more vertex
+			while (sscanf(line_buffer, "%u/", &vertex1) == 1)
 			{
-				mesh_tris[tris_count*3+0] = vertex_buffer[c-1];
-				mesh_tris[tris_count*3+1] = vertex_buffer[d-1];
-				mesh_tris[tris_count*3+2] = vertex_buffer[a-1];
+				// Bind the vertex0, the new vertex and the last as a tris
+				mesh_tris[tris_count*3+0] = vertex_buffer[vertex0-1];
+				mesh_tris[tris_count*3+1] = vertex_buffer[vertex1-1];
+				mesh_tris[tris_count*3+2] = vertex_buffer[vertex2-1];
+
+				// Set verted1 as our new last vertex
+				vertex2 = vertex1;			
+				
+				// Increase tris count
 				tris_count++;
+
+				// Remove already parsed face and keep looping if other are present
+				if (sscanf(line_buffer, "%*s %[^\n]", line_buffer) != 1)
+					break;
 			}
 		}
 	}
@@ -281,6 +298,7 @@ int parse_obj(char* path)
 
 	// Close the file
 	fclose(mesh_file);
+
 	return 0;
 }
 
@@ -396,15 +414,15 @@ void clear_buffer()
 void restore_mesh()
 {
 	// Restore translation, scale and rotation
-	t_x = 0;
-	t_y = 0;
-	t_z = 5;
-	r_x = 0;
-	r_y = 0;
-	r_z = 0;
-	s_x = 1;
-	s_y = 1;
-	s_z = 1;
+	translation_x = 0;
+	translation_y = 0;
+	translation_z = 5;
+	rotation_x = 0;
+	rotation_y = 0;
+	rotation_z = 0;
+	scale_x = 1;
+	scale_y = 1;
+	scale_z = 1;
 
 	// Restore the tris from the mesh one
 	for (int i = 0; i < tris_count; i++) 
@@ -550,8 +568,8 @@ void draw()
 	
 	// Print status info
 	printf("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
-		t_x, t_y, t_z, (int)(r_x*180/PI), (int)(r_y*180/PI), (int)(r_z*180/PI),
-		s_x, s_y, s_z, vertex_count, tris_count);
+		translation_x, translation_y, translation_z, (int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
+		scale_x, scale_y, scale_z, vertex_count, tris_count);
 
 	return;
 }
@@ -669,17 +687,17 @@ void loop_input()
 			if (command[1] == 'x')
 			{
 				translate(ammount, 0, 0);
-				t_x += ammount;
+				translation_x += ammount;
 			}
 			else if (command[1] == 'y')
 			{
 				translate(0, ammount, 0);
-				t_y += ammount;
+				translation_y += ammount;
 			}
 			else if (command[1] == 'z')
 			{
 				translate(0, 0, ammount);
-				t_z += ammount;
+				translation_z += ammount;
 			}
 		}
 
@@ -687,7 +705,7 @@ void loop_input()
 		else if (command[0] == 'r')
 		{
 			// Reposition the mesh to center
-			translate(-t_x, -t_y, -t_z);
+			translate(-translation_x, -translation_y, -translation_z);
 
 			// Convert from degree to radian
 			float angle = ammount*PI/180;
@@ -696,64 +714,64 @@ void loop_input()
 			if (command[1] == 'x')
 			{
 				rotate_x(angle);
-				r_x += angle;
+				rotation_x += angle;
 
 				// Display rotation between 0 and 360
-				r_x = normalized_angle(r_x);
+				rotation_x = normalized_angle(rotation_x);
 			}
 			else if (command[1] == 'y')
 			{
 				rotate_y(angle);
-				r_y += angle;
+				rotation_y += angle;
 
 				// Display rotation between 0 and 360
-				r_y = normalized_angle(r_y);
+				rotation_y = normalized_angle(rotation_y);
 			}
 			else if (command[1] == 'z')
 			{
 				rotate_z(angle);
-				r_z += angle;
+				rotation_z += angle;
 
 				// Display rotation between 0 and 360
-				r_z = normalized_angle(r_z);
+				rotation_z = normalized_angle(rotation_z);
 			}
 
 			// Reposition the mesh back
-			translate(t_x, t_y, t_z);
+			translate(translation_x, translation_y, translation_z);
 		}
 
 		// Scale
 		else if (command[0] == 's')
 		{
 			// Reposition the mesh to center
-			translate(-t_x, -t_y, -t_z);	
+			translate(-translation_x, -translation_y, -translation_z);	
 			
 			// Scale
 			if (command[1] == 'x')
 			{
 				scale(ammount, 1, 1);
-				s_x *= ammount;
+				scale_x *= ammount;
 			}
 			else if (command[1] == 'y')
 			{
 				scale(1, ammount, 1);
-				s_y *= ammount;
+				scale_y *= ammount;
 			}
 			else if (command[1] == 'z')
 			{
 				scale(1, 1, ammount);
-				s_z *= ammount;
+				scale_z *= ammount;
 			}
 			else if (command[1] == 'a')
 			{
 				scale(ammount, ammount, ammount);
-				s_x *= ammount;
-				s_y *= ammount;
-				s_z *= ammount;
+				scale_x *= ammount;
+				scale_y *= ammount;
+				scale_z *= ammount;
 			}
 
 			// Reposition the mesh back
-			translate(t_x, t_y, t_z);
+			translate(translation_x, translation_y, translation_z);
 		}
 
 		// Reset
