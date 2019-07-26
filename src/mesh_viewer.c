@@ -568,7 +568,8 @@ void draw()
 	
 	// Print status info
 	printf("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
-		translation_x, translation_y, translation_z, (int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
+		translation_x, translation_y, translation_z,
+		(int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
 		scale_x, scale_y, scale_z, vertex_count, tris_count);
 
 	return;
