@@ -280,7 +280,7 @@ int parse_obj(char* path)
 				mesh_tris[tris_count*3+1] = vertex_buffer[vertex1-1];
 				mesh_tris[tris_count*3+2] = vertex_buffer[vertex2-1];
 
-				// Set verted1 as our new last vertex
+				// Set vertex2 as our new last vertex
 				vertex2 = vertex1;			
 				
 				// Increase tris count
