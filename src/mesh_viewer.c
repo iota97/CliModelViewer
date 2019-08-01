@@ -238,8 +238,8 @@ void free_buffer()
 	free(depth);
 
 	return;
-
 }
+
 /* Read the mesh file */
 int parse_obj(char* path) 
 {
@@ -518,6 +518,7 @@ void render_to_buffer()
 
 	for (i = 0; i < tris_count; i++) 
 	{
+		/* Barycentric coordinate determinant */
 		float determinant;
 
 		/* Get the bounding coordinate of the tris */
@@ -606,6 +607,7 @@ void render_to_buffer()
 void clear_screen()
 {	
 	int i;
+
 	/* Print 64 new line */
 	for (i = 0; i < 64; i++)
 		putchar('\n');
