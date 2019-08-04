@@ -663,12 +663,13 @@ void show_help()
 /* Create depth and screen buffer */
 void create_buffer(unsigned int width, unsigned int height)
 {
+	
+	/* Check width and height to be more than zero */
+	if (width <= 0 || height <= 2)
+		return;
+
 	/* Reserve 2 line for status info */
 	height -= 2;
-
-	/* Check width and height to be more than zero */
-	if (width <= 0 || height <= 0)
-		return;
 
 	/* Free old buffer */
 	free_buffer();
