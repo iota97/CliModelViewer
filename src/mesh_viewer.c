@@ -60,7 +60,7 @@ void render_to_buffer(void);
 void clear_screen(void);
 void draw(void);
 void show_help(void);
-void create_buffer(unsigned int width, unsigned int height);
+void create_buffer(int width, int height);
 void loop_input(void);
 
 /* Vertex stuct */
@@ -661,22 +661,21 @@ void show_help()
 }
 
 /* Create depth and screen buffer */
-void create_buffer(unsigned int width, unsigned int height)
+void create_buffer(int width, int height)
 {
-	
-	/* Check width and height to be more than zero */
-	if (width <= 0 || height <= 2)
-		return;
-
 	/* Reserve 2 line for status info */
 	height -= 2;
+	
+	/* Check width and height to be more than zero */
+	if (width <= 0 || height <= 0)
+		return;
 
 	/* Free old buffer */
 	free_buffer();
 
 	/* Allocate new one */
-	screen = (char*) malloc(sizeof(char) * width * height);
-	depth = (float*) malloc(sizeof(float) * width * height);
+	screen = (char*) malloc(sizeof(char) * (unsigned int)width * (unsigned int)height);
+	depth = (float*) malloc(sizeof(float) * (unsigned int)width * (unsigned int)height);
 
 	/* Set global buffer size */
 	buffer_width = (int) width;
@@ -714,9 +713,9 @@ void loop_input()
 		else if (command[0] == 'v')
 		{
 			/* Try to parse width and height */
-			unsigned int width, height;
+			int width, height;
 
-			if (sscanf(command, "%*s %ux%u", &width, &height) == 2)
+			if (sscanf(command, "%*s %dx%d", &width, &height) == 2)
 			{
 				/* Recreate a new buffer */
 				create_buffer(width, height);
