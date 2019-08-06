@@ -8,7 +8,9 @@ Build with:
 	"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
 
 
-Syntax: mesh_viewer [path/to/mesh.obj]
+Syntax: 
+
+	mesh_viewer [path/to/mesh.obj]
 
 
 Normal mode command syntax:
