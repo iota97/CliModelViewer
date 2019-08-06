@@ -1,16 +1,48 @@
 /* CLI rasterization - ANSI C */
 
+/* Build with: 
+
+"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+
+*/
+
+/* Input-output and memory management headers */
 #include <stdio.h>
 #include <stdlib.h>
+
+/* Ncurses header */
+#ifdef NCURSES
+#include <curses.h>
+#endif
 
 /* Configs */
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 24
 #define FONT_RATEO 0.5f
 
-/* Help message */
+#ifdef NCURSES
+/* Help message Ncurses */
+static const char* const HELP_MESSAGE =
+"Command list:								\n\
+									\n\
+	Move:		W - up		A - left	Z - forward	\n\
+			S - down	D - right	X - backward	\n\
+									\n\
+	Rotate: 	I, K - on X axis				\n\
+			J, L - on Y axis				\n\
+			U, O - on Z axis				\n\
+									\n\
+	Scale:		+, -						\n\
+									\n\
+	Misc: 		R - reset	Q - quit	H - help 	\n\
+									\n\
+Press ANY key to continue						";
+
+#else
+/* Help message CLI*/
 static const char* const HELP_MESSAGE0 =
-	"Command syntax:						\n\
+"Command syntax:							\n\
 									\n\
 	t[axis] [ammount] - translate					\n\
 	r[axis] [ammount] - rotate					\n\
@@ -21,7 +53,7 @@ static const char* const HELP_MESSAGE0 =
 	v [widht]x[height] - set viewport size				\n";
 
 static const char* const HELP_MESSAGE1 =
-	"	axis: x, y, z, a - all (scale only) 			\n\
+"	axis: x, y, z, a - all (scale only) 				\n\
 									\n\
 	ammount: float value						\n\
 									\n\
@@ -32,7 +64,8 @@ static const char* const HELP_MESSAGE1 =
 									\n\
 	Press [Enter] to repeat the last command			\n\
 									\n\
-	Press ENTER to continue						";
+Press ENTER to continue							";
+#endif
 
 /* Math const */
 #define PI 3.14159265359f
@@ -606,11 +639,18 @@ void render_to_buffer()
 /* Clear the console */
 void clear_screen()
 {	
+	#ifdef NCURSES
+	/* Just call ncurses clear */
+	clear();
+	
+	#else
+	/* Use CLI method */
 	int i;
 
 	/* Print 64 new line */
 	for (i = 0; i < 64; i++)
 		putchar('\n');
+	#endif
 
 	return;
 }
@@ -626,10 +666,27 @@ void draw()
 	/* Clear the console */
 	clear_screen();
 
-	/* Print it */
+	#ifdef NCURSES
+	/* Print it, Ncurses mode */
 	for (j = 0; j < buffer_height; j++) 
 	{
-		for (i = 0; i < buffer_width; i++) 
+		for (i = 0; i < buffer_width; i++)
+		{
+			mvaddch(j, i, screen[i+j*buffer_width]);
+		}
+	}
+
+	/* Print status info */
+	printw("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f); V: %d; T: %d",
+		(double) translation_x, (double) translation_y, (double) translation_z,
+		(int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
+		(double) scale_x, (double) scale_y, (double) scale_z, vertex_count, tris_count);
+
+	#else
+	/* Print it, CLI mode */
+	for (j = 0; j < buffer_height; j++) 
+	{
+		for (i = 0; i < buffer_width; i++)
 		{
 			putchar(screen[i+j*buffer_width]);
 		}
@@ -641,6 +698,7 @@ void draw()
 		(double) translation_x, (double) translation_y, (double) translation_z,
 		(int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
 		(double) scale_x, (double) scale_y, (double) scale_z, vertex_count, tris_count);
+	#endif
 
 	return;
 }
@@ -651,20 +709,36 @@ void show_help()
 	/* Clear the console */
 	clear_screen();
 
-	/* Print usage instruction */
+	#ifdef NCURSES
+	/* Print usage instruction, Ncurses mode */
+	mvprintw(0, 0, "%s", HELP_MESSAGE);
+
+	/* Wait input */
+	getch();
+		
+	#else
+	/* Print usage instruction, CLI mode */
 	puts(HELP_MESSAGE0);
 	puts(HELP_MESSAGE1);
 	
 	/* Wait input to proceed */
 	getchar();
+	#endif
+
 	return;
 }
 
 /* Create depth and screen buffer */
 void create_buffer(int width, int height)
 {
-	/* Reserve 2 line for status info */
+	#ifdef NCURSES
+	/* Reserve 1 line for status info, Ncurses mode */
+	height -= 1;
+
+	#else
+	/* Reserve 2 line for status info, CLI mode */
 	height -= 2;
+	#endif
 	
 	/* Check width and height to be more than zero */
 	if (width <= 0 || height <= 0)
@@ -687,7 +761,157 @@ void create_buffer(int width, int height)
 	return;
 }
 
-/* Input loop */
+#ifdef NCURSES
+/* Ncurses input loop */
+void loop_input()
+{
+	/* Input variables */
+	int command;
+	int quit = 0;
+
+	while (!quit)
+	{
+		/* Check screen to be the same size as before */
+		if (buffer_width != getmaxx(stdscr) || buffer_height != getmaxy(stdscr))
+		{
+			create_buffer(getmaxx(stdscr), getmaxy(stdscr));
+		}
+
+		/* Render */
+		draw();
+
+		/* Get input */
+		command = getch();
+	
+		/* Quit */
+		if (command == 'q')
+			quit = 1;
+
+		/* Help */
+		else if (command == 'h')
+			show_help();
+
+		/* Move up */
+		else if (command == 'w')
+		{
+			translation_y += 0.05f;
+			translate(0, 0.05f, 0);
+		}
+
+		/* Move down */
+		else if (command == 's')
+		{
+			translation_y -= 0.05f;
+			translate(0, -0.05f, 0);
+		}
+
+		/* Move left */
+		else if (command == 'a')
+		{
+			translation_x -= 0.05f;
+			translate(-0.05f, 0, 0);
+		}
+
+		/* Move right */
+		else if (command == 'd')
+		{
+			translation_x += 0.05f;
+			translate(0.05f, 0, 0);
+		}
+
+		/* Move forward */
+		else if (command == 'z')
+		{
+			translation_z -= 0.05f;
+			translate(0, 0, -0.05f);
+		}
+
+		/* Move backward */
+		else if (command == 'x')
+		{
+			translation_z += 0.05f;
+			translate(0, 0, 0.05f);
+		}
+
+		/* Scale up */
+		else if (command == '+')
+		{
+			scale_x *= 1.1f;
+			scale_y *= 1.1f;
+			scale_z *= 1.1f;
+			translate(-translation_x, -translation_y, -translation_z);
+			scale(1.1f, 1.1f, 1.1f);
+			translate(translation_x, translation_y, translation_z);
+		}
+
+		/* Scale down */
+		else if (command == '-')
+		{
+			scale_x *= 0.9f;
+			scale_y *= 0.9f;
+			scale_z *= 0.9f;
+			translate(-translation_x, -translation_y, -translation_z);
+			scale(0.9f, 0.9f, 0.9f);
+			translate(translation_x, translation_y, translation_z);
+		}
+
+		/* Rotate y */
+		else if (command == 'j')
+		{	
+			rotation_y = normalized_angle(rotation_y + 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_y(0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+		else if (command == 'l')
+		{	
+			rotation_y = normalized_angle(rotation_y - 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_y(-0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+
+		/* Rotate x */
+		else if (command == 'i')
+		{	
+			rotation_x = normalized_angle(rotation_x + 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_x(0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+		else if (command == 'k')
+		{	
+			rotation_x = normalized_angle(rotation_x - 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_x(-0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+
+		/* Rotate z */
+		else if (command == 'u')
+		{	
+			rotation_z = normalized_angle(rotation_z + 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_z(0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+		else if (command == 'o')
+		{	
+			rotation_z = normalized_angle(rotation_z - 0.05f);
+			translate(-translation_x, -translation_y, -translation_z);
+			rotate_z(-0.05f);
+			translate(translation_x, translation_y, translation_z);
+		}
+
+		/* Restore mesh */
+		else if (command == 'r')
+			restore_mesh();
+	}
+	return;
+}
+
+#else
+/* CLI input loop */
 void loop_input()
 {
 	/* Input variables */
@@ -841,6 +1065,7 @@ void loop_input()
 
 	return;
 }
+#endif
 
 /* Main */
 int main(int argc, char *argv[]) 
@@ -855,22 +1080,40 @@ int main(int argc, char *argv[])
 	/* Parse the model */
 	if (parse_obj(argv[1]))
 		return 2;
-	
+
+	/* Ncurses init */
+	#ifdef NCURSES
+	initscr();
+	cbreak();
+	noecho();
+	curs_set(0);
+	#endif
+
 	/* Print help message at start */
-	show_help();	
+	show_help();
 
 	/* Restore the mesh */
 	restore_mesh();
 
 	/* Allocate rendering buffer */
-	create_buffer(SCREEN_WIDTH, SCREEN_HEIGHT);
+	#ifdef NCURSES
+	create_buffer(getmaxx(stdscr), getmaxy(stdscr));
 
-	/* Start the loop */
+	#else
+	create_buffer(SCREEN_WIDTH, SCREEN_HEIGHT);
+	#endif
+
+	/* Start the input loop */
 	loop_input();
-	
+
 	/* Free memory */
 	free_tris();
 	free_buffer();
+	
+	/* Kill the windows */
+	#ifdef NCURSES
+	endwin();
+	#endif
 
 	/* Exit */
 	return 0;

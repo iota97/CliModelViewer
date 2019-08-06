@@ -2,9 +2,16 @@
 
 CLI mesh rasterizer - Use with .obj model format
 
-	Syntax: mesh_viewer [path/to/mesh.obj]
+Build with: 
 
-	Command syntax:
+"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+
+
+Syntax: mesh_viewer [path/to/mesh.obj]
+
+
+Normal mode command syntax:
 
 	t[axis] [ammount] - translate
 	r[axis] [ammount] - rotate
@@ -24,3 +31,17 @@ CLI mesh rasterizer - Use with .obj model format
 		  'v 80x24' set vieport to 80x24 (default)
 								
 	Press [Enter] to repeat the last command
+
+
+Ncurses mode command list:
+									
+	Move:		W - up		A - left	Z - forward	
+			S - down	D - right	X - backward
+									
+	Rotate: 	I, K - on X axis	
+			J, L - on Y axis	
+			U, O - on Z axis	
+									
+	Scale:		+, -
+								
+	Misc: 		R - reset	Q - quit	H - help
