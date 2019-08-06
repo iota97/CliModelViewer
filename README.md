@@ -4,8 +4,8 @@ CLI mesh rasterizer - Use with .obj model format
 
 Build with: 
 
-"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
-"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+	"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
+	"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
 
 
 Syntax: mesh_viewer [path/to/mesh.obj]

@@ -907,6 +907,7 @@ void loop_input()
 		else if (command == 'r')
 			restore_mesh();
 	}
+
 	return;
 }
 
