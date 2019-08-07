@@ -553,8 +553,7 @@ void restore_mesh()
 		}
 	}
 
-	/* Rotate and translate for initial view */
-	rotate_y(PI);
+	/* Translate for initial view */
 	translate(0, 0, 5);
 
 	return;
