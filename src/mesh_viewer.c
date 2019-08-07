@@ -394,7 +394,7 @@ void update_transform(float update[3][3])
 	}
 
 	/* Multiply the update * transform using the copy */
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 3; i++)
 	{
 		for (j = 0; j < 3; j++)
 		{
