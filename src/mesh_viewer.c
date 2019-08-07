@@ -402,7 +402,7 @@ void update_transform(float update[3][3])
 
 			for (k = 0; k < 3; k++)
 			{
-				transform[i][j] += update[i][k]*copy[k][j];
+				transform[i][j] += copy[k][j]*update[i][k];
 			}
 		}
 	}
