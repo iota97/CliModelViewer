@@ -371,9 +371,9 @@ int parse_obj(char* path)
 void translate(float x, float y, float z) 
 {
 	/* Add translation directly to the matrix */
-	transform[0][3] -= x;
-	transform[1][3] += y;
-	transform[2][3] += z;
+	transform[3][0] -= x;
+	transform[3][1] += y;
+	transform[3][2] += z;
 
 	return;
 }
@@ -402,7 +402,7 @@ void update_transform(float update[3][3])
 
 			for (k = 0; k < 3; k++)
 			{
-				transform[i][j] += copy[k][j]*update[i][k];
+				transform[i][j] += update[k][j]*copy[i][k];
 			}
 		}
 	}
@@ -453,9 +453,9 @@ void rotate_x(float x)
 
 	/* Add rotation */
 	update[1][1] = cosine(x);
-	update[2][1] = sine(x);
+	update[1][2] = sine(x);
 	update[2][2] = update[1][1];
-	update[1][2] = -update[2][1];
+	update[2][1] = -update[1][2];
 	update[0][0] = 1.f;
 
 	/* Update global matrix */
@@ -481,8 +481,8 @@ void rotate_y(float y)
 
 	/* Add rotation */
 	update[0][0] = cosine(y);
-	update[0][2] = -sine(y);
-	update[2][0] = -update[0][2];
+	update[2][0] = -sine(y);
+	update[0][2] = -update[2][0];
 	update[2][2] = update[0][0];
 	update[1][1] = 1.f;
 
@@ -509,8 +509,8 @@ void rotate_z(float z)
 
 	/* Add rotation */
 	update[0][0] = cosine(-z);
-	update[1][0] = sine(-z);
-	update[0][1] = -update[1][0];
+	update[0][1] = sine(-z);
+	update[1][0] = -update[0][1];
 	update[1][1] = update[0][0];
 	update[2][2] = 1.f;
 
@@ -590,19 +590,19 @@ void render_to_buffer()
 		{
 			/* Multiply with transform matrix */
 			vertex[j].x = transform[0][0]*tris_buffer[i*3+j].x+
-					transform[0][1]*tris_buffer[i*3+j].y+
-					transform[0][2]*tris_buffer[i*3+j].z+
-					transform[0][3];
+					transform[1][0]*tris_buffer[i*3+j].y+
+					transform[2][0]*tris_buffer[i*3+j].z+
+					transform[3][0];
 
-			vertex[j].y = transform[1][0]*tris_buffer[i*3+j].x+
+			vertex[j].y = transform[0][1]*tris_buffer[i*3+j].x+
 					transform[1][1]*tris_buffer[i*3+j].y+
-					transform[1][2]*tris_buffer[i*3+j].z+
-					transform[1][3];
+					transform[2][1]*tris_buffer[i*3+j].z+
+					transform[3][1];
 
-			vertex[j].z = transform[2][0]*tris_buffer[i*3+j].x+
-					transform[2][1]*tris_buffer[i*3+j].y+
+			vertex[j].z = transform[0][2]*tris_buffer[i*3+j].x+
+					transform[1][2]*tris_buffer[i*3+j].y+
 					transform[2][2]*tris_buffer[i*3+j].z+
-					transform[2][3];
+					transform[3][2];
 
 			/* Raster vertex to screen */
 			x_array[j] = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
