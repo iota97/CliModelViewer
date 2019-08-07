@@ -16,15 +16,13 @@
 #include <curses.h>
 #endif
 
-/* Configs */
-#define SCREEN_WIDTH 80
-#define SCREEN_HEIGHT 24
+/* Font width/height rateo */
 #define FONT_RATEO 0.5f
 
 /* Ncurses motion step */
 #ifdef NCURSES
-#define TRANSLATE_STEP 0.05f
-#define ROTATE_STEP 0.06f
+#define TRANSLATE_STEP 0.06f
+#define ROTATE_STEP 0.08f
 #define SCALE_STEP 1.1f
 
 /* Using color, Ncurses only */
@@ -74,6 +72,10 @@ static const char* const HELP_MESSAGE1 =
 	Press [Enter] to repeat the last command			\n\
 									\n\
 Press ENTER to continue							";
+
+/* CLI start screen size */
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 24
 #endif
 
 /* Math const */
@@ -88,10 +90,9 @@ float absolute (float x);
 float normalized_angle(float x);
 float sine(float x);
 float cosine(float x);
-void free_tris(void);
-void free_buffer(void);
 int parse_obj(char* path);
 void translate(float x, float y, float z);
+void update_transform(float update[3][3]);
 void scale(float x, float y, float z);
 void rotate_x(float x);
 void rotate_y(float y);
@@ -113,43 +114,30 @@ typedef struct vertex
 	float z;
 } vertex_t;
 
-/* Translation */
-static float translation_x = 0;
-static float translation_y = 0;
-static float translation_z = 0;
-
-/* Rotation */
-static float rotation_x = 0;
-static float rotation_y = 0;
-static float rotation_z = 0;
-
-/* Scale */
-static float scale_x = 1;
-static float scale_y = 1;
-static float scale_z = 1;
-
 /* Vertex and tris counter */
 static unsigned int tris_count = 0;
 static unsigned int vertex_count = 0;
 
-/* Tris Buffer, one for applying transform */
+/* Tris Buffer */
 static vertex_t *tris_buffer = NULL;
-static vertex_t *mesh_tris = NULL;
 
 /* Screen and depth buffer */
-static int buffer_width = SCREEN_WIDTH;
-static int buffer_height = SCREEN_HEIGHT;
+static int buffer_width = 0;
+static int buffer_height = 0;
 static char *screen = NULL;
 static float *depth = NULL;
 
-/* Calculate the screen rateo */
-static float screen_rateo = SCREEN_WIDTH/SCREEN_HEIGHT*FONT_RATEO;
+/* Screen rateo based on screen height, width and font rateo */
+static float screen_rateo;
 
 /* Material array of char */
 static char material_array[] = {'a', 'b', 'c', 'd', 
 				'e', 'f', 'g', 'h',
 				'i', 'j', 'k', 'l',
 				'm', 'n', 'o', 'p'};
+
+/* Transform matrix */
+static float transform[4][4];
 
 /* Calculate the absolute value */
 float absolute(float x)
@@ -262,26 +250,6 @@ float cosine(float x)
 	}
 }
 
-/* Free tris memory */
-void free_tris()
-{ 
-	/* Free memory */
-	free(mesh_tris);
-	free(tris_buffer);
-
-	return;
-}
-
-/* Free buffer */
-void free_buffer()
-{ 
-	/* Free memory */
-	free(screen);
-	free(depth);
-
-	return;
-}
-
 /* Read the mesh file */
 int parse_obj(char* path) 
 {
@@ -328,12 +296,11 @@ int parse_obj(char* path)
 	}
 
 	/* Free previous tris  */
-	free_tris();
+	free(tris_buffer);
 
 	/* Alloc the memory */
 	vertex_buffer = (vertex_t*) malloc(vertex_count * sizeof(vertex_t));
 	tris_buffer = (vertex_t*) malloc(tris_count * sizeof(vertex_t) * 3);
-	mesh_tris = (vertex_t*) malloc(tris_count * sizeof(vertex_t) * 3);
 
 	/* Reset the counter and rewind the file */
 	vertex_count = 0;
@@ -363,9 +330,9 @@ int parse_obj(char* path)
 				&vertex0, &vertex1, &vertex2, line_buffer);
 
 			/* Bind the vertex */
-			mesh_tris[tris_count*3+0] = vertex_buffer[vertex0-1];
-			mesh_tris[tris_count*3+1] = vertex_buffer[vertex1-1];
-			mesh_tris[tris_count*3+2] = vertex_buffer[vertex2-1];
+			tris_buffer[tris_count*3+0] = vertex_buffer[vertex0-1];
+			tris_buffer[tris_count*3+1] = vertex_buffer[vertex1-1];
+			tris_buffer[tris_count*3+2] = vertex_buffer[vertex2-1];
 
 			/* Increase tris count */
 			tris_count++;
@@ -374,9 +341,9 @@ int parse_obj(char* path)
 			while (sscanf(line_buffer, "%u/", &vertex1) == 1)
 			{
 				/* Bind the vertex0, the new vertex and the last as a tris */
-				mesh_tris[tris_count*3+0] = vertex_buffer[vertex0-1];
-				mesh_tris[tris_count*3+1] = vertex_buffer[vertex1-1];
-				mesh_tris[tris_count*3+2] = vertex_buffer[vertex2-1];
+				tris_buffer[tris_count*3+0] = vertex_buffer[vertex0-1];
+				tris_buffer[tris_count*3+1] = vertex_buffer[vertex1-1];
+				tris_buffer[tris_count*3+2] = vertex_buffer[vertex2-1];
 
 				/* Set vertex2 as our new last vertex */
 				vertex2 = vertex1;			
@@ -403,14 +370,40 @@ int parse_obj(char* path)
 /* Translate the mesh */
 void translate(float x, float y, float z) 
 {
-	unsigned int i, j;
-	for (i = 0; i < tris_count; i++) 
+	/* Add translation directly to the matrix */
+	transform[0][3] -= x;
+	transform[1][3] += y;
+	transform[2][3] += z;
+
+	return;
+}
+
+/* Update transform matrix for scale and rotation */
+void update_transform(float update[3][3])
+{
+	int i, j, k;
+
+	/* Copy old transform */
+	float copy[4][4];
+	for (i = 0; i < 4; i++)
 	{
-		for (j = 0; j < 3; j++) 
+		for (j = 0; j < 4; j++)
 		{
-			tris_buffer[i*3+j].x -= x; 
-			tris_buffer[i*3+j].y += y;
-			tris_buffer[i*3+j].z += z;
+			copy[i][j] = transform[i][j];
+		}
+	}
+
+	/* Multiply the update * transform using the copy */
+	for (i = 0; i < 4; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			transform[i][j] = 0;
+
+			for (k = 0; k < 3; k++)
+			{
+				transform[i][j] += update[i][k]*copy[k][j];
+			}
 		}
 	}
 
@@ -420,17 +413,25 @@ void translate(float x, float y, float z)
 /* Scale the mesh */
 void scale(float x, float y, float z)
 {
-	unsigned int i, j;
-	for (i = 0; i < tris_count; i++) 
-	{
-		for (j = 0; j < 3; j++) 
-		{
-			tris_buffer[i*3+j].x *= x; 
-			tris_buffer[i*3+j].y *= y;
-			tris_buffer[i*3+j].z *= z;
-		}
+	int i, j;
+	float update[3][3];
 
+	/* Create empty matrix */
+	for (i = 0; i < 3; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			update[i][j] = 0;
+		}
 	}
+
+	/* Add scale */
+	update[0][0] = x;
+	update[1][1] = y;
+	update[2][2] = z;
+
+	/* Update global matrix */
+	update_transform(update);
 
 	return;
 }
@@ -438,20 +439,27 @@ void scale(float x, float y, float z)
 /* Rotate the mesh on X axis */
 void rotate_x(float x)
 {
-	unsigned int i, j;
-	for (i = 0; i < tris_count; i++) 
+	int i, j;
+	float update[3][3];
+
+	/* Create empty matrix */
+	for (i = 0; i < 3; i++)
 	{
-		for (j = 0; j < 3; j++) 
+		for (j = 0; j < 3; j++)
 		{
-			/* Back up float */
-			float tmp = tris_buffer[i*3+j].y;
-			
-			tris_buffer[i*3+j].y = cosine(x) * tris_buffer[i*3+j].y -
-						sine(x) * tris_buffer[i*3+j].z;
-			tris_buffer[i*3+j].z = sine(x) * tmp +
-						cosine(x) * tris_buffer[i*3+j].z;
+			update[i][j] = 0;
 		}
 	}
+
+	/* Add rotation */
+	update[1][1] = cosine(x);
+	update[2][1] = sine(x);
+	update[2][2] = update[1][1];
+	update[1][2] = -update[2][1];
+	update[0][0] = 1.f;
+
+	/* Update global matrix */
+	update_transform(update);
 
 	return;
 }
@@ -459,20 +467,27 @@ void rotate_x(float x)
 /* Rotate the mesh on Y axis */
 void rotate_y(float y)
 {
-	unsigned int i, j;
-	for (i = 0; i < tris_count; i++) 
+	int i, j;
+	float update[3][3];
+
+	/* Create empty matrix */
+	for (i = 0; i < 3; i++)
 	{
-		for (j = 0; j < 3; j++) 
+		for (j = 0; j < 3; j++)
 		{
-			/* Back up float */
-			float tmp = tris_buffer[i*3+j].x;
-			
-			tris_buffer[i*3+j].x = cosine(y) * tris_buffer[i*3+j].x -
-						sine(y) * tris_buffer[i*3+j].z;
-			tris_buffer[i*3+j].z = sine(y) * tmp +
-						cosine(y) * tris_buffer[i*3+j].z; 
+			update[i][j] = 0;
 		}
 	}
+
+	/* Add rotation */
+	update[0][0] = cosine(y);
+	update[0][2] = -sine(y);
+	update[2][0] = -update[0][2];
+	update[2][2] = update[0][0];
+	update[1][1] = 1.f;
+
+	/* Update global matrix */
+	update_transform(update);
 
 	return;
 }
@@ -480,20 +495,27 @@ void rotate_y(float y)
 /* Rotate the mesh on Z axis */
 void rotate_z(float z)
 {
-	unsigned int i, j;
-	for (i = 0; i < tris_count; i++) 
+	int i, j;
+	float update[3][3];
+
+	/* Create empty matrix */
+	for (i = 0; i < 3; i++)
 	{
-		for (j = 0; j < 3; j++) 
+		for (j = 0; j < 3; j++)
 		{
-			/* Back up float */
-			float tmp = tris_buffer[i*3+j].x;
-			
-			tris_buffer[i*3+j].x = cosine(-z) * tris_buffer[i*3+j].x -
-						sine(-z) * tris_buffer[i*3+j].y;
-			tris_buffer[i*3+j].y = sine(-z) * tmp +
-						cosine(-z) * tris_buffer[i*3+j].y; 
+			update[i][j] = 0;
 		}
 	}
+
+	/* Add rotation */
+	update[0][0] = cosine(-z);
+	update[1][0] = sine(-z);
+	update[0][1] = -update[1][0];
+	update[1][1] = update[0][0];
+	update[2][2] = 1.f;
+
+	/* Update global matrix */
+	update_transform(update);
 
 	return;
 }
@@ -517,27 +539,17 @@ void clear_buffer()
 /* Restore position */
 void restore_mesh()
 {
-	unsigned int i, j;	
-
-	/* Restore translation, scale and rotation */
-	translation_x = 0;
-	translation_y = 0;
-	translation_z = 5;
-	rotation_x = 0;
-	rotation_y = 0;
-	rotation_z = 0;
-	scale_x = 1;
-	scale_y = 1;
-	scale_z = 1;
-
-	/* Restore the tris from the mesh one */
-	for (i = 0; i < tris_count; i++) 
+	unsigned int i, j;
+	
+	/* Restore identity matrix */
+	for (i = 0; i < 4; i++)
 	{
-		for (j = 0; j < 3; j++) 
+		for (j = 0; j < 4; j++)
 		{
-			tris_buffer[i*3+j].x = mesh_tris[i*3+j].x; 
-			tris_buffer[i*3+j].y = mesh_tris[i*3+j].y;
-			tris_buffer[i*3+j].z = mesh_tris[i*3+j].z;
+			if (i == j)
+				transform[i][j] = 1;
+			else
+				transform[i][j] = 0;
 		}
 	}
 
@@ -570,16 +582,35 @@ void render_to_buffer()
 		int max_y = 0;
 
 		/* Raster the vertex to screen */
-		float x_array[3], y_array[3]; 
-		
-		x_array[0] = (tris_buffer[i*3+0].x / -absolute(tris_buffer[i*3+0].z) * buffer_width) + buffer_width/2;
-		x_array[1] = (tris_buffer[i*3+1].x / -absolute(tris_buffer[i*3+1].z) * buffer_width) + buffer_width/2;
-		x_array[2] = (tris_buffer[i*3+2].x / -absolute(tris_buffer[i*3+2].z) * buffer_width) + buffer_width/2;
+		float x_array[3], y_array[3];
 
-		y_array[0] = (tris_buffer[i*3+0].y / -absolute(tris_buffer[i*3+0].z) * buffer_height)*screen_rateo + buffer_height/2; 
-		y_array[1] = (tris_buffer[i*3+1].y / -absolute(tris_buffer[i*3+1].z) * buffer_height)*screen_rateo + buffer_height/2;
-		y_array[2] = (tris_buffer[i*3+2].y / -absolute(tris_buffer[i*3+2].z) * buffer_height)*screen_rateo + buffer_height/2;
+		/* Transformed vertex */
+		vertex_t vertex[3];
 
+		for (j = 0; j < 3; j++)
+		{
+			/* Multiply with transform matrix */
+			vertex[j].x = transform[0][0]*tris_buffer[i*3+j].x+
+					transform[0][1]*tris_buffer[i*3+j].y+
+					transform[0][2]*tris_buffer[i*3+j].z+
+					transform[0][3];
+
+			vertex[j].y = transform[1][0]*tris_buffer[i*3+j].x+
+					transform[1][1]*tris_buffer[i*3+j].y+
+					transform[1][2]*tris_buffer[i*3+j].z+
+					transform[1][3];
+
+			vertex[j].z = transform[2][0]*tris_buffer[i*3+j].x+
+					transform[2][1]*tris_buffer[i*3+j].y+
+					transform[2][2]*tris_buffer[i*3+j].z+
+					transform[2][3];
+
+			/* Raster vertex to screen */
+			x_array[j] = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
+			y_array[j] = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
+		}
+
+		/* Get boundaries */
 		for (j = 0; j < 3; j++)
 		{
 			if (x_array[j] < min_x)
@@ -618,9 +649,9 @@ void render_to_buffer()
 				if (lambda0 >= 0 && lambda1 >= 0 && lambda2 >= 0) 
 				{
 					/* Interpolate Z value */
-					float pixel_depth = tris_buffer[i*3+0].z * lambda0 +
-								tris_buffer[i*3+1].z * lambda1 +
-								tris_buffer[i*3+2].z * lambda2;
+					float pixel_depth = vertex[0].z * lambda0 +
+								vertex[1].z * lambda1 +
+								vertex[2].z * lambda2;
 
 					/* Test depth buffer and near plane */
 					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE)
@@ -639,7 +670,6 @@ void render_to_buffer()
 		/* Return to 0 if last element is reached */
 		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
 			material_index = 0;
-
 	}
 
 	return;
@@ -706,12 +736,6 @@ void draw()
 		}
 	}
 
-	/* Print status info */
-	printw("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f); V: %d; T: %d",
-		(double) translation_x, (double) translation_y, (double) translation_z,
-		(int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
-		(double) scale_x, (double) scale_y, (double) scale_z, vertex_count, tris_count);
-
 	#else
 	/* Print it, CLI mode */
 	for (j = 0; j < buffer_height; j++) 
@@ -722,12 +746,7 @@ void draw()
 		}
 		putchar('\n');
 	}
-	
-	/* Print status info */
-	printf("T(%.2f, %.2f, %.2f); R(%d, %d, %d); S(%.2f, %.2f, %.2f)\n[V: %d; T: %d]> ",
-		(double) translation_x, (double) translation_y, (double) translation_z,
-		(int)(rotation_x*180/PI), (int)(rotation_y*180/PI), (int)(rotation_z*180/PI),
-		(double) scale_x, (double) scale_y, (double) scale_z, vertex_count, tris_count);
+	printf("> ");
 	#endif
 
 	return;
@@ -745,7 +764,7 @@ void show_help()
 
 	/* Wait input */
 	getch();
-		
+
 	#else
 	/* Print usage instruction, CLI mode */
 	puts(HELP_MESSAGE0);
@@ -761,21 +780,13 @@ void show_help()
 /* Create depth and screen buffer */
 void create_buffer(int width, int height)
 {
-	#ifdef NCURSES
-	/* Reserve 1 line for status info, Ncurses mode */
-	height -= 1;
-
-	#else
-	/* Reserve 2 line for status info, CLI mode */
-	height -= 2;
-	#endif
-	
 	/* Check width and height to be more than zero */
 	if (width <= 0 || height <= 0)
 		return;
 
 	/* Free old buffer */
-	free_buffer();
+	free(screen);
+	free(depth);
 
 	/* Allocate new one */
 	screen = (char*) malloc(sizeof(char) * (unsigned int)width * (unsigned int)height);
@@ -813,133 +824,96 @@ void loop_input()
 		/* Get input */
 		command = getch();
 	
-		/* Quit */
-		if (command == 'q')
-			quit = 1;
+		switch (command)
+		{
+			/* Quit */
+			case 'q':
+				quit = 1;
+				break;
 
-		/* Help */
-		else if (command == 'h')
-			show_help();
+			/* Help */
+			case 'h':
+				show_help();
+				break;
 		
-		/* Color */
-		else if (command == 'c' && has_colors())
-			use_color = !use_color;
+			/* Color */
+			case 'c':
+		 		if (has_colors())
+					use_color = !use_color;
+				break;
 
-		/* Move up */
-		else if (command == 'w')
-		{
-			translation_y += TRANSLATE_STEP;
-			translate(0, TRANSLATE_STEP, 0);
-		}
+			/* Move up */
+			case 'w':
+				translate(0, TRANSLATE_STEP, 0);
+				break;
 
-		/* Move down */
-		else if (command == 's')
-		{
-			translation_y -= TRANSLATE_STEP;
-			translate(0, -TRANSLATE_STEP, 0);
-		}
+			/* Move down */
+			case 's':
+				translate(0, -TRANSLATE_STEP, 0);
+				break;
 
-		/* Move left */
-		else if (command == 'a')
-		{
-			translation_x -= TRANSLATE_STEP;
-			translate(-TRANSLATE_STEP, 0, 0);
-		}
+			/* Move left */
+			case 'a':
+				translate(-TRANSLATE_STEP, 0, 0);
+				break;
+			
+			/* Move right */
+			case 'd':
+				translate(TRANSLATE_STEP, 0, 0);
+				break;
 
-		/* Move right */
-		else if (command == 'd')
-		{
-			translation_x += TRANSLATE_STEP;
-			translate(TRANSLATE_STEP, 0, 0);
-		}
+			/* Move forward */
+			case 'z':
+				translate(0, 0, -TRANSLATE_STEP);
+				break;
 
-		/* Move forward */
-		else if (command == 'z')
-		{
-			translation_z -= TRANSLATE_STEP;
-			translate(0, 0, -TRANSLATE_STEP);
-		}
+			/* Move backward */
+			case 'x':
+				translate(0, 0, TRANSLATE_STEP);
+				break;
 
-		/* Move backward */
-		else if (command == 'x')
-		{
-			translation_z += TRANSLATE_STEP;
-			translate(0, 0, TRANSLATE_STEP);
-		}
+			/* Scale up */
+			case '+':
+				scale(SCALE_STEP, SCALE_STEP, SCALE_STEP);
+				break;
 
-		/* Scale up */
-		else if (command == '+')
-		{
-			scale_x *= SCALE_STEP;
-			scale_y *= SCALE_STEP;
-			scale_z *= SCALE_STEP;
-			translate(-translation_x, -translation_y, -translation_z);
-			scale(SCALE_STEP, SCALE_STEP, SCALE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
+			/* Scale down */
+			case '-':
+				scale(1/SCALE_STEP, 1/SCALE_STEP, 1/SCALE_STEP);
+				break;
 
-		/* Scale down */
-		else if (command == '-')
-		{
-			scale_x *= 1/SCALE_STEP;
-			scale_y *= 1/SCALE_STEP;
-			scale_z *= 1/SCALE_STEP;
-			translate(-translation_x, -translation_y, -translation_z);
-			scale(1/SCALE_STEP, 1/SCALE_STEP, 1/SCALE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
+			/* Rotate y */
+			case 'j':
+				rotate_y(ROTATE_STEP);
+				break;
 
-		/* Rotate y */
-		else if (command == 'j')
-		{	
-			rotation_y = normalized_angle(rotation_y + ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_y(ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
-		else if (command == 'l')
-		{	
-			rotation_y = normalized_angle(rotation_y - ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_y(-ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
+			case 'l':
+				rotate_y(-ROTATE_STEP);
+				break;
 
-		/* Rotate x */
-		else if (command == 'i')
-		{	
-			rotation_x = normalized_angle(rotation_x + ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_x(ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
-		else if (command == 'k')
-		{	
-			rotation_x = normalized_angle(rotation_x - ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_x(-ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
+			/* Rotate x */
+			case 'i':
+				rotate_x(ROTATE_STEP);
+				break;
 
-		/* Rotate z */
-		else if (command == 'u')
-		{	
-			rotation_z = normalized_angle(rotation_z + ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_z(ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
-		else if (command == 'o')
-		{	
-			rotation_z = normalized_angle(rotation_z - ROTATE_STEP);
-			translate(-translation_x, -translation_y, -translation_z);
-			rotate_z(-ROTATE_STEP);
-			translate(translation_x, translation_y, translation_z);
-		}
+			case 'k':
+				rotate_x(-ROTATE_STEP);
+				break;
 
-		/* Restore mesh */
-		else if (command == 'r')
-			restore_mesh();
+			/* Rotate z */
+			case 'u':
+				rotate_z(ROTATE_STEP);
+				break;
+		
+			case 'o':
+				rotate_z(-ROTATE_STEP);
+				break;
+
+			/* Restore mesh */
+			case 'r':
+				restore_mesh();
+				break;
+		}
 	}
 
 	return;
@@ -998,17 +972,14 @@ void loop_input()
 			if (command[1] == 'x')
 			{
 				translate(ammount, 0, 0);
-				translation_x += ammount;
 			}
 			else if (command[1] == 'y')
 			{
 				translate(0, ammount, 0);
-				translation_y += ammount;
 			}
 			else if (command[1] == 'z')
 			{
 				translate(0, 0, ammount);
-				translation_z += ammount;
 			}
 		}
 
@@ -1017,72 +988,42 @@ void loop_input()
 		{
 			/* Convert from degree to radian */
 			float angle = ammount*PI/180;
-			
-			/* Reposition the mesh to center */
-			translate(-translation_x, -translation_y, -translation_z);
-			
+
 			/* Rotate */
 			if (command[1] == 'x')
 			{
 				rotate_x(angle);
-				rotation_x += angle;
-
-				/* Display rotation between 0 and 360 */
-				rotation_x = normalized_angle(rotation_x);
 			}
 			else if (command[1] == 'y')
 			{
 				rotate_y(angle);
-				rotation_y += angle;
-
-				/* Display rotation between 0 and 360 */
-				rotation_y = normalized_angle(rotation_y);
 			}
 			else if (command[1] == 'z')
 			{
 				rotate_z(angle);
-				rotation_z += angle;
-
-				/* Display rotation between 0 and 360 */
-				rotation_z = normalized_angle(rotation_z);
 			}
-
-			/* Reposition the mesh back */
-			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Scale */
 		else if (command[0] == 's')
 		{
-			/* Reposition the mesh to center */
-			translate(-translation_x, -translation_y, -translation_z);	
-			
 			/* Scale */
 			if (command[1] == 'x')
 			{
 				scale(ammount, 1, 1);
-				scale_x *= ammount;
 			}
 			else if (command[1] == 'y')
 			{
 				scale(1, ammount, 1);
-				scale_y *= ammount;
 			}
 			else if (command[1] == 'z')
 			{
 				scale(1, 1, ammount);
-				scale_z *= ammount;
 			}
 			else if (command[1] == 'a')
 			{
 				scale(ammount, ammount, ammount);
-				scale_x *= ammount;
-				scale_y *= ammount;
-				scale_z *= ammount;
 			}
-
-			/* Reposition the mesh back */
-			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Reset */
@@ -1159,8 +1100,9 @@ int main(int argc, char *argv[])
 	loop_input();
 
 	/* Free memory */
-	free_tris();
-	free_buffer();
+	free(tris_buffer);
+	free(screen);
+	free(depth);
 	
 	/* Kill the windows */
 	#ifdef NCURSES
