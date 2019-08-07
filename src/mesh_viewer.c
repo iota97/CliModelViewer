@@ -21,7 +21,15 @@
 #define SCREEN_HEIGHT 24
 #define FONT_RATEO 0.5f
 
+/* Ncurses motion step */
 #ifdef NCURSES
+#define TRANSLATE_STEP 0.05f
+#define ROTATE_STEP 0.06f
+#define SCALE_STEP 1.1f
+
+/* Using color, Ncurses only */
+static int use_color = 0;
+
 /* Help message Ncurses */
 static const char* const HELP_MESSAGE =
 "Command list:								\n\
@@ -35,9 +43,10 @@ static const char* const HELP_MESSAGE =
 									\n\
 	Scale:		+, -						\n\
 									\n\
-	Misc: 		R - reset	Q - quit	H - help 	\n\
+	Misc: 		R - reset	C - color			\n\
+			H - help	Q - quit			\n\
 									\n\
-Press ANY key to continue						";
+Press ANY key to continue";					
 
 #else
 /* Help message CLI*/
@@ -546,7 +555,7 @@ void render_to_buffer()
 	int x, y;
 
 	/* Clear before start */
-	int material_index = 0;
+	unsigned int material_index = 0;
 	clear_buffer();
 
 	for (i = 0; i < tris_count; i++) 
@@ -628,7 +637,7 @@ void render_to_buffer()
 		material_index++;
 
 		/* Return to 0 if last element is reached */
-		if (material_index == sizeof(material_array)/sizeof(char))
+		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
 			material_index = 0;
 
 	}
@@ -667,12 +676,33 @@ void draw()
 	clear_screen();
 
 	#ifdef NCURSES
-	/* Print it, Ncurses mode */
-	for (j = 0; j < buffer_height; j++) 
+	/* Print it, Ncurses color mode */
+	if (use_color)
 	{
-		for (i = 0; i < buffer_width; i++)
+		for (j = 0; j < buffer_height; j++) 
 		{
-			mvaddch(j, i, screen[i+j*buffer_width]);
+			for (i = 0; i < buffer_width; i++)
+			{
+				/* Set color attribute and print a blank space */
+				attron(COLOR_PAIR(screen[i+j*buffer_width]));
+				addch(' ');
+			}
+		}
+
+		/* Restore black and white */
+		attron(COLOR_PAIR(' '));
+	}
+
+	/* Ncurses, no color */
+	else
+	{
+		for (j = 0; j < buffer_height; j++) 
+		{
+			for (i = 0; i < buffer_width; i++)
+			{
+				/* Print the char in the buffer */
+				addch(screen[i+j*buffer_width]);
+			}
 		}
 	}
 
@@ -790,116 +820,120 @@ void loop_input()
 		/* Help */
 		else if (command == 'h')
 			show_help();
+		
+		/* Color */
+		else if (command == 'c' && has_colors())
+			use_color = !use_color;
 
 		/* Move up */
 		else if (command == 'w')
 		{
-			translation_y += 0.05f;
-			translate(0, 0.05f, 0);
+			translation_y += TRANSLATE_STEP;
+			translate(0, TRANSLATE_STEP, 0);
 		}
 
 		/* Move down */
 		else if (command == 's')
 		{
-			translation_y -= 0.05f;
-			translate(0, -0.05f, 0);
+			translation_y -= TRANSLATE_STEP;
+			translate(0, -TRANSLATE_STEP, 0);
 		}
 
 		/* Move left */
 		else if (command == 'a')
 		{
-			translation_x -= 0.05f;
-			translate(-0.05f, 0, 0);
+			translation_x -= TRANSLATE_STEP;
+			translate(-TRANSLATE_STEP, 0, 0);
 		}
 
 		/* Move right */
 		else if (command == 'd')
 		{
-			translation_x += 0.05f;
-			translate(0.05f, 0, 0);
+			translation_x += TRANSLATE_STEP;
+			translate(TRANSLATE_STEP, 0, 0);
 		}
 
 		/* Move forward */
 		else if (command == 'z')
 		{
-			translation_z -= 0.05f;
-			translate(0, 0, -0.05f);
+			translation_z -= TRANSLATE_STEP;
+			translate(0, 0, -TRANSLATE_STEP);
 		}
 
 		/* Move backward */
 		else if (command == 'x')
 		{
-			translation_z += 0.05f;
-			translate(0, 0, 0.05f);
+			translation_z += TRANSLATE_STEP;
+			translate(0, 0, TRANSLATE_STEP);
 		}
 
 		/* Scale up */
 		else if (command == '+')
 		{
-			scale_x *= 1.1f;
-			scale_y *= 1.1f;
-			scale_z *= 1.1f;
+			scale_x *= SCALE_STEP;
+			scale_y *= SCALE_STEP;
+			scale_z *= SCALE_STEP;
 			translate(-translation_x, -translation_y, -translation_z);
-			scale(1.1f, 1.1f, 1.1f);
+			scale(SCALE_STEP, SCALE_STEP, SCALE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Scale down */
 		else if (command == '-')
 		{
-			scale_x *= 0.9f;
-			scale_y *= 0.9f;
-			scale_z *= 0.9f;
+			scale_x *= 1/SCALE_STEP;
+			scale_y *= 1/SCALE_STEP;
+			scale_z *= 1/SCALE_STEP;
 			translate(-translation_x, -translation_y, -translation_z);
-			scale(0.9f, 0.9f, 0.9f);
+			scale(1/SCALE_STEP, 1/SCALE_STEP, 1/SCALE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Rotate y */
 		else if (command == 'j')
 		{	
-			rotation_y = normalized_angle(rotation_y + 0.05f);
+			rotation_y = normalized_angle(rotation_y + ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_y(0.05f);
+			rotate_y(ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 		else if (command == 'l')
 		{	
-			rotation_y = normalized_angle(rotation_y - 0.05f);
+			rotation_y = normalized_angle(rotation_y - ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_y(-0.05f);
+			rotate_y(-ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Rotate x */
 		else if (command == 'i')
 		{	
-			rotation_x = normalized_angle(rotation_x + 0.05f);
+			rotation_x = normalized_angle(rotation_x + ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_x(0.05f);
+			rotate_x(ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 		else if (command == 'k')
 		{	
-			rotation_x = normalized_angle(rotation_x - 0.05f);
+			rotation_x = normalized_angle(rotation_x - ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_x(-0.05f);
+			rotate_x(-ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 
 		/* Rotate z */
 		else if (command == 'u')
 		{	
-			rotation_z = normalized_angle(rotation_z + 0.05f);
+			rotation_z = normalized_angle(rotation_z + ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_z(0.05f);
+			rotate_z(ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 		else if (command == 'o')
 		{	
-			rotation_z = normalized_angle(rotation_z - 0.05f);
+			rotation_z = normalized_angle(rotation_z - ROTATE_STEP);
 			translate(-translation_x, -translation_y, -translation_z);
-			rotate_z(-0.05f);
+			rotate_z(-ROTATE_STEP);
 			translate(translation_x, translation_y, translation_z);
 		}
 
@@ -1088,6 +1122,23 @@ int main(int argc, char *argv[])
 	cbreak();
 	noecho();
 	curs_set(0);
+
+	/* Color init */
+	if (has_colors())
+	{
+		unsigned int i;
+		start_color();
+		
+		/* Material array color pair*/
+		for (i = 0; i < sizeof(material_array)/sizeof(material_array[0]); i++)
+		{
+			/* Color from 1 to 7 */
+			init_pair(material_array[i], COLOR_WHITE, i%7+1);
+		}
+
+		/* Blank space */
+		init_pair(' ', COLOR_WHITE, COLOR_BLACK);
+	}
 	#endif
 
 	/* Print help message at start */

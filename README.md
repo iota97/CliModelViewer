@@ -46,4 +46,5 @@ Ncurses mode command list:
 									
 	Scale:		+, -
 								
-	Misc: 		R - reset	Q - quit	H - help
+	Misc: 		R - reset	C - color
+			H - help	Q - quit
