@@ -300,6 +300,13 @@ int parse_obj(char* path)
 		}
 	}
 
+	/* Check vertex and tris count */
+	if (vertex_count == 0 || tris_count == 0)
+	{
+		printf("Corrupted file %s\n", path);
+		return 1;
+	}
+
 	/* Free previous tris  */
 	free(tris_buffer);
 
@@ -728,14 +735,19 @@ void draw()
 		{
 			for (i = 0; i < buffer_width; i++)
 			{
-				/* Set color attribute and print a blank space */
-				attron(COLOR_PAIR(screen[i+j*buffer_width]));
+				/* Set color attribute */
+				if (screen[i+j*buffer_width] != ' ')
+					attron(COLOR_PAIR(screen[i+j*buffer_width]%7+2));
+				else
+					attron(COLOR_PAIR(1));
+					
+				/* Print a blank space */
 				addch(' ');
 			}
 		}
 
 		/* Restore black and white */
-		attron(COLOR_PAIR(' '));
+		attron(COLOR_PAIR(1));
 	}
 
 	/* Ncurses, no color */
@@ -1098,11 +1110,11 @@ int main(int argc, char *argv[])
 		for (i = 0; i < sizeof(material_array)/sizeof(material_array[0]); i++)
 		{
 			/* Color from 1 to 7 */
-			init_pair(material_array[i], COLOR_WHITE, i%7+1);
+			init_pair(material_array[i]%7+2, COLOR_WHITE, i%7+1);
 		}
 
 		/* Blank space */
-		init_pair(' ', COLOR_WHITE, COLOR_BLACK);
+		init_pair(1, COLOR_WHITE, COLOR_BLACK);
 	}
 	#endif
 
