@@ -41,7 +41,7 @@ static const char* const HELP_MESSAGE =
 									\n\
 	Scale:		+, -						\n\
 									\n\
-	Misc: 		R - reset	C - color			\n\
+	Misc: 		R - reset	C - color	P - ortho view	\n\
 			H - help	Q - quit			\n\
 									\n\
 Press ANY key to continue";					
@@ -54,6 +54,7 @@ static const char* const HELP_MESSAGE0 =
 	t[axis] [ammount] - translate					\n\
 	r[axis] [ammount] - rotate					\n\
 	s[axis] [ammount] - scale					\n\
+	p - ortho view							\n\
 	h - help							\n\
 	m - reset							\n\
 	q - quit							\n\
@@ -84,6 +85,7 @@ Press ENTER to continue							";
 /* Rendering const */
 #define NEAR_PLANE 1
 #define FAR_PLANE 8192
+#define START_Z 5.f
 
 /* Function prototype */
 float absolute (float x);
@@ -114,9 +116,8 @@ typedef struct vertex
 	float z;
 } vertex_t;
 
-/* Vertex and tris counter */
+/* Tris counter */
 static unsigned int tris_count = 0;
-static unsigned int vertex_count = 0;
 
 /* Tris Buffer */
 static vertex_t *tris_buffer = NULL;
@@ -129,6 +130,9 @@ static float *depth = NULL;
 
 /* Screen rateo based on screen height, width and font rateo */
 static float screen_rateo;
+
+/* Orthographic or perspective */
+static int ortho = 0;
 
 /* Material array of char */
 static char material_array[] = {'a', 'b', 'c', 'd', 
@@ -253,6 +257,7 @@ float cosine(float x)
 /* Read the mesh file */
 int parse_obj(char* path) 
 {
+	static unsigned int vertex_count = 0;
 	char line_buffer[1024];
 	FILE* mesh_file = fopen(path, "r");
 	vertex_t* vertex_buffer = NULL;
@@ -553,8 +558,9 @@ void restore_mesh()
 		}
 	}
 
-	/* Translate for initial view */
-	translate(0, 0, 5);
+	/* Translate and rotate for initial view */
+	translate(0, 0, START_Z);
+	rotate_y(PI);
 
 	return;
 }
@@ -604,9 +610,19 @@ void render_to_buffer()
 					transform[2][2]*tris_buffer[i*3+j].z+
 					transform[3][2];
 
-			/* Raster vertex to screen */
-			x_array[j] = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
-			y_array[j] = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
+			/* Orthographic projection */
+			if (ortho)
+			{
+				x_array[j] = (vertex[j].x / -transform[3][2] * buffer_width) + buffer_width/2;
+				y_array[j] = (vertex[j].y / -transform[3][2] * buffer_height)*screen_rateo + buffer_height/2;
+			}
+
+			/* Perspective projection */
+			else
+			{
+				x_array[j] = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
+				y_array[j] = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
+			}
 		}
 
 		/* Get boundaries */
@@ -834,6 +850,11 @@ void loop_input()
 			case 'h':
 				show_help();
 				break;
+
+			/* Orthogonal or perspective */
+			case 'p':
+				ortho = !ortho;
+				break;
 		
 			/* Color */
 			case 'c':
@@ -940,6 +961,10 @@ void loop_input()
 		/* Quit */
 		if (command[0] == 'q')
 			quit = 1;
+
+		/* Orthogonal or perspective */
+		else if (command[0] == 'p')
+			ortho = !ortho;
 
 		/* Viewport resize */
 		else if (command[0] == 'v')
