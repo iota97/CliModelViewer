@@ -116,11 +116,10 @@ typedef struct vertex
 	float z;
 } vertex_t;
 
-/* Tris counter */
+/* Tris and vertex buffer */
 static unsigned int tris_count = 0;
-
-/* Tris Buffer */
-static vertex_t *tris_buffer = NULL;
+static int *tris_buffer = NULL;
+static vertex_t* vertex_buffer = NULL;
 
 /* Screen and depth buffer */
 static int buffer_width = 0;
@@ -260,7 +259,6 @@ int parse_obj(char* path)
 	static unsigned int vertex_count = 0;
 	char line_buffer[1024];
 	FILE* mesh_file = fopen(path, "r");
-	vertex_t* vertex_buffer = NULL;
 
 	/* Check the read to be succefull */
 	if (mesh_file == NULL)
@@ -288,7 +286,7 @@ int parse_obj(char* path)
 			tris_count++;
 			
 			/* Parse other tris if the face have more vertex */
-			while (sscanf(line_buffer, "%u/", &test_vertex) == 1)
+			while (sscanf(line_buffer, "%d/", &test_vertex) == 1)
 			{
 				/* Increase tris count */
 				tris_count++;
@@ -307,12 +305,13 @@ int parse_obj(char* path)
 		return 1;
 	}
 
-	/* Free previous tris  */
+	/* Free previous tris and vertex */
 	free(tris_buffer);
+	free(vertex_buffer);
 
 	/* Alloc the memory */
 	vertex_buffer = (vertex_t*) malloc(vertex_count * sizeof(vertex_t));
-	tris_buffer = (vertex_t*) malloc(tris_count * sizeof(vertex_t) * 3);
+	tris_buffer = (int*) malloc(tris_count * sizeof(int) * 3);
 
 	/* Reset the counter and rewind the file */
 	vertex_count = 0;
@@ -338,24 +337,24 @@ int parse_obj(char* path)
 		{
 			/* Parse the first tris */
 			int vertex0, vertex1, vertex2;
-			sscanf(line_buffer, "%*s %u/%*s %u/%*s %u/%*s %[^\n]",
+			sscanf(line_buffer, "%*s %d/%*s %d/%*s %d/%*s %[^\n]",
 				&vertex0, &vertex1, &vertex2, line_buffer);
 
 			/* Bind the vertex */
-			tris_buffer[tris_count*3+0] = vertex_buffer[vertex0-1];
-			tris_buffer[tris_count*3+1] = vertex_buffer[vertex1-1];
-			tris_buffer[tris_count*3+2] = vertex_buffer[vertex2-1];
+			tris_buffer[tris_count*3+0] = vertex0-1;
+			tris_buffer[tris_count*3+1] = vertex1-1;
+			tris_buffer[tris_count*3+2] = vertex2-1;
 
 			/* Increase tris count */
 			tris_count++;
 			
 			/* Parse other tris if the face have more vertex */
-			while (sscanf(line_buffer, "%u/", &vertex1) == 1)
+			while (sscanf(line_buffer, "%d/", &vertex1) == 1)
 			{
 				/* Bind the vertex0, the new vertex and the last as a tris */
-				tris_buffer[tris_count*3+0] = vertex_buffer[vertex0-1];
-				tris_buffer[tris_count*3+1] = vertex_buffer[vertex1-1];
-				tris_buffer[tris_count*3+2] = vertex_buffer[vertex2-1];
+				tris_buffer[tris_count*3+0] = vertex0-1;
+				tris_buffer[tris_count*3+1] = vertex1-1;
+				tris_buffer[tris_count*3+2] = vertex2-1;
 
 				/* Set vertex2 as our new last vertex */
 				vertex2 = vertex1;			
@@ -369,9 +368,6 @@ int parse_obj(char* path)
 			}
 		}
 	}
-
-	/* Free the vertex buffer */
-	free(vertex_buffer);
 
 	/* Close the file */
 	fclose(mesh_file);
@@ -593,58 +589,52 @@ void render_to_buffer()
 		int max_x = 0;
 		int max_y = 0;
 
-		/* Raster the vertex to screen */
-		float x_array[3], y_array[3];
-
 		/* Transformed vertex */
 		vertex_t vertex[3];
 
 		for (j = 0; j < 3; j++)
 		{
 			/* Multiply with transform matrix */
-			vertex[j].x = transform[0][0]*tris_buffer[i*3+j].x+
-					transform[1][0]*tris_buffer[i*3+j].y+
-					transform[2][0]*tris_buffer[i*3+j].z+
+			vertex[j].x = transform[0][0]*vertex_buffer[tris_buffer[i*3+j]].x+
+					transform[1][0]*vertex_buffer[tris_buffer[i*3+j]].y+
+					transform[2][0]*vertex_buffer[tris_buffer[i*3+j]].z+
 					transform[3][0];
 
-			vertex[j].y = transform[0][1]*tris_buffer[i*3+j].x+
-					transform[1][1]*tris_buffer[i*3+j].y+
-					transform[2][1]*tris_buffer[i*3+j].z+
+			vertex[j].y = transform[0][1]*vertex_buffer[tris_buffer[i*3+j]].x+
+					transform[1][1]*vertex_buffer[tris_buffer[i*3+j]].y+
+					transform[2][1]*vertex_buffer[tris_buffer[i*3+j]].z+
 					transform[3][1];
 
-			vertex[j].z = transform[0][2]*tris_buffer[i*3+j].x+
-					transform[1][2]*tris_buffer[i*3+j].y+
-					transform[2][2]*tris_buffer[i*3+j].z+
+			vertex[j].z = transform[0][2]*vertex_buffer[tris_buffer[i*3+j]].x+
+					transform[1][2]*vertex_buffer[tris_buffer[i*3+j]].y+
+					transform[2][2]*vertex_buffer[tris_buffer[i*3+j]].z+
 					transform[3][2];
 
 			/* Orthographic projection */
 			if (ortho)
 			{
-				x_array[j] = (vertex[j].x / -transform[3][2] * buffer_width) + buffer_width/2;
-				y_array[j] = (vertex[j].y / -transform[3][2] * buffer_height)*screen_rateo + buffer_height/2;
+				vertex[j].x = (vertex[j].x / -transform[3][2] * buffer_width) + buffer_width/2;
+				vertex[j].y = (vertex[j].y / -transform[3][2] * buffer_height)*screen_rateo + buffer_height/2;
 			}
 
 			/* Perspective projection */
 			else
 			{
-				x_array[j] = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
-				y_array[j] = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
+				vertex[j].x = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
+				vertex[j].y = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
 			}
+
+			/* Get boundaries */
+			if (vertex[j].x < min_x)
+				min_x = (int) vertex[j].x;
+			if (vertex[j].x > max_x)
+				max_x = (int) vertex[j].x;
+			if (vertex[j].y < min_y)
+				min_y = (int) vertex[j].y;
+			if (vertex[j].y > max_y)
+				max_y = (int) vertex[j].y;
 		}
 
-		/* Get boundaries */
-		for (j = 0; j < 3; j++)
-		{
-			if (x_array[j] < min_x)
-				min_x = (int) x_array[j];
-			if (x_array[j] > max_x)
-				max_x = (int) x_array[j];
-			if (y_array[j] < min_y)
-				min_y = (int) y_array[j];
-			if (y_array[j] > max_y)
-				max_y = (int) y_array[j];
-		}
-		
 		/* Check boundaries */
 		max_x = (max_x > buffer_width-1) ? buffer_width-1 : max_x;
 		max_y = (max_y > buffer_height-1) ? buffer_height-1 : max_y;
@@ -652,8 +642,8 @@ void render_to_buffer()
 		min_y = (min_y < 0) ? 0 : min_y;
 		
 		/* Calculate the determinant for barycentric coordinate */
-		determinant = 1/((y_array[1]-y_array[2])*(x_array[0]-x_array[2]) +
-					(x_array[2]-x_array[1])*(y_array[0]-y_array[2]));
+		determinant = 1/((vertex[1].y-vertex[2].y)*(vertex[0].x-vertex[2].x) +
+					(vertex[2].x-vertex[1].x)*(vertex[0].y-vertex[2].y));
 
 		/* Test only the pixel in this area */
 		for (y = min_y; y <= max_y; y++) 
@@ -661,10 +651,10 @@ void render_to_buffer()
 			for (x = min_x; x <= max_x; x++) 
 			{
 				/* Calculate barycentric coordinate */
-				float lambda0 = ((y_array[1]-y_array[2])*(x-x_array[2]) +
-					(x_array[2]-x_array[1])*(y-y_array[2]))*determinant;
-				float lambda1 = ((y_array[2]-y_array[0])*(x-x_array[2]) +
-					(x_array[0]-x_array[2])*(y-y_array[2]))*determinant;
+				float lambda0 = ((vertex[1].y-vertex[2].y)*(x-vertex[2].x) +
+					(vertex[2].x-vertex[1].x)*(y-vertex[2].y))*determinant;
+				float lambda1 = ((vertex[2].y-vertex[0].y)*(x-vertex[2].x) +
+					(vertex[0].x-vertex[2].x)*(y-vertex[2].y))*determinant;
 				float lambda2 = 1 - lambda0 - lambda1;
 				
 				/* If is inside the triangle, render it */
@@ -1137,6 +1127,7 @@ int main(int argc, char *argv[])
 
 	/* Free memory */
 	free(tris_buffer);
+	free(vertex_buffer);
 	free(screen);
 	free(depth);
 	
