@@ -16,6 +16,14 @@
 #include <curses.h>
 #endif
 
+/* Math const */
+#define PI 3.14159265359f
+
+/* Rendering const */
+#define NEAR_PLANE 0.2f
+#define FAR_PLANE 8192
+#define START_Z 5.f
+
 /* Font width/height rateo */
 #define FONT_RATEO 0.5f
 
@@ -79,17 +87,7 @@ Press ENTER to continue							";
 #define SCREEN_HEIGHT 24
 #endif
 
-/* Math const */
-#define PI 3.14159265359f
-#define FLOAT_EQUAL_ERROR 0.00001f
-
-/* Rendering const */
-#define NEAR_PLANE 0.2f
-#define FAR_PLANE 8192
-#define START_Z 5.f
-
 /* Function prototype */
-int float_equal(float a, float b);
 float normalized_angle(float x);
 float sine(float x);
 float cosine(float x);
@@ -142,12 +140,6 @@ static char material_array[] = {'a', 'b', 'c', 'd',
 
 /* Transform matrix */
 static float transform[4][4];
-
-/* Check float to be equal with error margin */
-int float_equal(float a, float b)
-{
-	return (a < b) ? (a-b) > FLOAT_EQUAL_ERROR : (a-b) < -FLOAT_EQUAL_ERROR;
-}
 
 /* Normalize rotation between 0 and 2PI */
 float normalized_angle(float x)
@@ -307,7 +299,7 @@ int parse_obj(char* path)
 
 	/* Alloc the memory */
 	vertex_buffer = (vertex_t*) malloc(vertex_count * sizeof(vertex_t));
-	tris_buffer = (int*) malloc((unsigned int)tris_count * sizeof(int) * 3);
+	tris_buffer = (int*) malloc(tris_count * sizeof(int) * 3);
 
 	/* Reset the counter and rewind the file */
 	vertex_count = 0;
@@ -569,12 +561,12 @@ void render_to_buffer()
 {
 	int i, j;
 	int x, y;
+	unsigned int material_index = 0;
 
 	/* Used for near plane culling when we split a tris in 2 */
 	int last_half_rendered = 0;
 
 	/* Clear before start */
-	unsigned int material_index = 0;
 	clear_buffer();
 
 	for (i = 0; i < tris_count; i++) 
@@ -587,7 +579,7 @@ void render_to_buffer()
 		int min_y = buffer_height-1;
 		int max_x = 0;
 		int max_y = 0;
-		unsigned int behind_near = 0;
+		int behind_near = 0;
 
 		/* Transformed vertex */
 		vertex_t vertex[3];
@@ -658,19 +650,19 @@ void render_to_buffer()
 				}
 
 				/* Calculate the intersection point, check alignment first */
-				intersect[0].x = float_equal(vertex[id[0]].x, vertex[id[1]].x) ? vertex[id[0]].x :
+				intersect[0].x = (vertex[id[0]].x == vertex[id[1]].x) ? vertex[id[0]].x :
 						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
 						(vertex[id[0]].x-vertex[id[1]].x)/(vertex[id[0]].z-vertex[id[1]].z);
 
-				intersect[0].y = float_equal(vertex[id[0]].y, vertex[id[1]].y) ? vertex[id[0]].y :
+				intersect[0].y = (vertex[id[0]].y == vertex[id[1]].y) ? vertex[id[0]].y :
 						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
 						(vertex[id[0]].y-vertex[id[1]].y)/(vertex[id[0]].z-vertex[id[1]].z);
 				
-				intersect[1].x = float_equal(vertex[id[0]].x, vertex[id[2]].x) ? vertex[id[0]].x :
+				intersect[1].x = (vertex[id[0]].x == vertex[id[2]].x) ? vertex[id[0]].x :
 						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
 						(vertex[id[0]].x-vertex[id[2]].x)/(vertex[id[0]].z-vertex[id[2]].z);
 
-				intersect[1].y = float_equal(vertex[id[0]].y, vertex[id[2]].y) ? vertex[id[0]].y :
+				intersect[1].y = (vertex[id[0]].y == vertex[id[2]].y) ? vertex[id[0]].y :
 						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
 						(vertex[id[0]].y-vertex[id[2]].y)/(vertex[id[0]].z-vertex[id[2]].z);
 				
@@ -690,7 +682,6 @@ void render_to_buffer()
 					vertex[2].y = intersect[1].y;
 					vertex[2].z = NEAR_PLANE;
 				}
-			
 				else
 				{
 					/* If we have 2 vertex in front we need to create 2 tris */
@@ -940,12 +931,12 @@ void create_buffer(int width, int height)
 	free(depth);
 
 	/* Allocate new one */
-	screen = (char*) malloc(sizeof(char) * (unsigned int)width * (unsigned int)height);
-	depth = (float*) malloc(sizeof(float) * (unsigned int)width * (unsigned int)height);
+	screen = (char*) malloc(sizeof(char) * width * height);
+	depth = (float*) malloc(sizeof(float) * width * height);
 
 	/* Set global buffer size */
-	buffer_width = (int) width;
-	buffer_height = (int) height;
+	buffer_width = width;
+	buffer_height = height;
 
 	/* Update screen rateo */
 	screen_rateo = (float)buffer_width/buffer_height*FONT_RATEO;
