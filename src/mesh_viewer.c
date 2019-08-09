@@ -81,14 +81,15 @@ Press ENTER to continue							";
 
 /* Math const */
 #define PI 3.14159265359f
+#define FLOAT_EQUAL_ERROR 0.00001f
 
 /* Rendering const */
-#define NEAR_PLANE 1
+#define NEAR_PLANE 0.2f
 #define FAR_PLANE 8192
 #define START_Z 5.f
 
 /* Function prototype */
-float absolute (float x);
+int float_equal(float a, float b);
 float normalized_angle(float x);
 float sine(float x);
 float cosine(float x);
@@ -117,7 +118,7 @@ typedef struct vertex
 } vertex_t;
 
 /* Tris and vertex buffer */
-static unsigned int tris_count = 0;
+static int tris_count = 0;
 static int *tris_buffer = NULL;
 static vertex_t* vertex_buffer = NULL;
 
@@ -142,21 +143,16 @@ static char material_array[] = {'a', 'b', 'c', 'd',
 /* Transform matrix */
 static float transform[4][4];
 
-/* Calculate the absolute value */
-float absolute(float x)
+/* Check float to be equal with error margin */
+int float_equal(float a, float b)
 {
-	return x > 0 ? x : -x;
+	return (a < b) ? (a-b) > FLOAT_EQUAL_ERROR : (a-b) < -FLOAT_EQUAL_ERROR;
 }
 
 /* Normalize rotation between 0 and 2PI */
 float normalized_angle(float x)
 {
-	if (x < 0)
-		x += 2*PI*((int)(-x/(2*PI))+1);
-	else 
-		x -= 2*PI*(int)(x/(2*PI));
-
-	return x;
+	return (x < 0) ? x + 2*PI*((int)(-x/(2*PI))+1) : x - 2*PI*(int)(x/(2*PI));
 }	
 
 /* Sine */
@@ -311,7 +307,7 @@ int parse_obj(char* path)
 
 	/* Alloc the memory */
 	vertex_buffer = (vertex_t*) malloc(vertex_count * sizeof(vertex_t));
-	tris_buffer = (int*) malloc(tris_count * sizeof(int) * 3);
+	tris_buffer = (int*) malloc((unsigned int)tris_count * sizeof(int) * 3);
 
 	/* Reset the counter and rewind the file */
 	vertex_count = 0;
@@ -571,8 +567,11 @@ void restore_mesh()
 /* Render to screen buffer */
 void render_to_buffer()
 {
-	unsigned int i, j;
+	int i, j;
 	int x, y;
+
+	/* Used for near plane culling when we split a tris in 2 */
+	int last_half_rendered = 0;
 
 	/* Clear before start */
 	unsigned int material_index = 0;
@@ -588,9 +587,13 @@ void render_to_buffer()
 		int min_y = buffer_height-1;
 		int max_x = 0;
 		int max_y = 0;
+		unsigned int behind_near = 0;
 
 		/* Transformed vertex */
 		vertex_t vertex[3];
+	
+		/* Render the tris with another material */
+		material_index++;
 
 		for (j = 0; j < 3; j++)
 		{
@@ -610,6 +613,140 @@ void render_to_buffer()
 					transform[2][2]*vertex_buffer[tris_buffer[i*3+j]].z+
 					transform[3][2];
 
+			/* Count vertex behind near plane */
+			if (vertex[j].z < NEAR_PLANE)
+				behind_near++;
+		}
+
+		/* Near plane culling */
+		if (behind_near > 0)
+		{
+			/* If all vertex are behind */
+			if (behind_near == 3)
+			{
+				/* Skip the tris */
+				continue;
+			}
+
+			/* If we have 1 or 2 vertex behind */
+			else
+			{
+				/* Find the 2 point of intersection with the near plane */
+				vertex_t intersect[2];
+				int id[3];
+
+				/* Set id[0] as id of the one on the different side */
+				if ((vertex[0].z >= NEAR_PLANE && behind_near == 2) ||
+					(vertex[0].z < NEAR_PLANE && behind_near == 1))
+				{
+					id[0] = 0;
+					id[1] = 1;
+					id[2] = 2;
+				}
+				else if ((vertex[1].z >= NEAR_PLANE && behind_near == 2) ||
+					(vertex[1].z < NEAR_PLANE && behind_near == 1))
+				{
+					id[0] = 1;
+					id[1] = 0;
+					id[2] = 2;
+				}
+				else
+				{
+					id[0] = 2;
+					id[1] = 0;
+					id[2] = 1;
+				}
+
+				/* Calculate the intersection point, check alignment first */
+				intersect[0].x = float_equal(vertex[id[0]].x, vertex[id[1]].x) ? vertex[id[0]].x :
+						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
+						(vertex[id[0]].x-vertex[id[1]].x)/(vertex[id[0]].z-vertex[id[1]].z);
+
+				intersect[0].y = float_equal(vertex[id[0]].y, vertex[id[1]].y) ? vertex[id[0]].y :
+						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
+						(vertex[id[0]].y-vertex[id[1]].y)/(vertex[id[0]].z-vertex[id[1]].z);
+				
+				intersect[1].x = float_equal(vertex[id[0]].x, vertex[id[2]].x) ? vertex[id[0]].x :
+						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
+						(vertex[id[0]].x-vertex[id[2]].x)/(vertex[id[0]].z-vertex[id[2]].z);
+
+				intersect[1].y = float_equal(vertex[id[0]].y, vertex[id[2]].y) ? vertex[id[0]].y :
+						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
+						(vertex[id[0]].y-vertex[id[2]].y)/(vertex[id[0]].z-vertex[id[2]].z);
+				
+				/* Create new tris */
+				if (behind_near == 2)
+				{
+					/* The vertex in front is kept, the other 2 become the intersect */
+					vertex[0].x = vertex[id[0]].x;
+					vertex[0].y = vertex[id[0]].y;
+					vertex[0].z = vertex[id[0]].z;
+
+					vertex[1].x = intersect[0].x;
+					vertex[1].y = intersect[0].y;
+					vertex[1].z = NEAR_PLANE;
+
+					vertex[2].x = intersect[1].x;
+					vertex[2].y = intersect[1].y;
+					vertex[2].z = NEAR_PLANE;
+				}
+			
+				else
+				{
+					/* If we have 2 vertex in front we need to create 2 tris */
+					last_half_rendered = !last_half_rendered;
+
+					/* Check with tris we rendered last time */
+					if (last_half_rendered)
+					{
+						/* Create the first tris */
+						vertex_t tmp;
+
+						tmp.x = vertex[id[1]].x;
+						tmp.y = vertex[id[1]].y;
+						tmp.z = vertex[id[1]].z;
+
+						vertex[2].x = vertex[id[2]].x;
+						vertex[2].y = vertex[id[2]].y;
+						vertex[2].z = vertex[id[2]].z;
+	
+						vertex[1].x = tmp.x;
+						vertex[1].y = tmp.y;
+						vertex[1].z = tmp.z;
+
+						vertex[0].x = intersect[0].x;
+						vertex[0].y = intersect[0].y;
+						vertex[0].z = NEAR_PLANE;
+
+						/* Decrease i, so we get the same tris next cycle */
+						i--;
+					}
+					else
+					{	
+						/* Create the second tris */
+						vertex[2].x = vertex[id[2]].x;
+						vertex[2].y = vertex[id[2]].y;
+						vertex[2].z = vertex[id[2]].z;
+				
+						vertex[0].x = intersect[1].x;
+						vertex[0].y = intersect[1].y;
+						vertex[0].z = NEAR_PLANE;
+
+						vertex[1].x = intersect[0].x;
+						vertex[1].y = intersect[0].y;
+						vertex[1].z = NEAR_PLANE;
+					
+						/* Decrease material, so we use the same as the other half */
+						material_index = (material_index > 0) ? material_index-1 :
+								sizeof(material_array)/sizeof(material_array[0])-1;
+					}
+				}
+			}
+		}
+
+		/* Raster vertex to screen */
+		for (j = 0; j < 3; j++)
+		{
 			/* Orthographic projection */
 			if (ortho)
 			{
@@ -620,8 +757,8 @@ void render_to_buffer()
 			/* Perspective projection */
 			else
 			{
-				vertex[j].x = (vertex[j].x / -absolute(vertex[j].z) * buffer_width) + buffer_width/2;
-				vertex[j].y = (vertex[j].y / -absolute(vertex[j].z) * buffer_height)*screen_rateo + buffer_height/2;
+				vertex[j].x = (vertex[j].x / -vertex[j].z * buffer_width) + buffer_width/2;
+				vertex[j].y = (vertex[j].y / -vertex[j].z * buffer_height)*screen_rateo + buffer_height/2;
 			}
 
 			/* Get boundaries */
@@ -665,8 +802,8 @@ void render_to_buffer()
 								vertex[1].z * lambda1 +
 								vertex[2].z * lambda2;
 
-					/* Test depth buffer and near plane */
-					if (depth[x+y*buffer_width] > pixel_depth && pixel_depth > NEAR_PLANE)
+					/* Test depth buffer */
+					if (depth[x+y*buffer_width] > pixel_depth)
 					{
 						/* Update both buffer */
 						screen[x+y*buffer_width] = material_array[material_index];
@@ -675,9 +812,6 @@ void render_to_buffer()
 				}
 			}			
 		}
-
-		/* Render next face with another material */
-		material_index++;
 
 		/* Return to 0 if last element is reached */
 		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
