@@ -20,8 +20,7 @@
 #define PI 3.14159265359f
 
 /* Rendering const */
-#define NEAR_PLANE 1.f
-#define FAR_PLANE 8192
+#define NEAR_PLANE 0.2f
 #define START_Z 5.f
 
 /* Font width/height rateo */
@@ -525,7 +524,7 @@ void clear_buffer()
 		for (j = 0; j < buffer_height; j++)
 		{
 			screen[i+j*buffer_width] = ' ';
-			depth[i+j*buffer_width] = FAR_PLANE;
+			depth[i+j*buffer_width] = 0;
 		}
 	}
 
@@ -787,18 +786,31 @@ void render_to_buffer()
 					(vertex[2].x-vertex[1].x)*(y-vertex[2].y))*determinant;
 				float lambda1 = ((vertex[2].y-vertex[0].y)*(x-vertex[2].x) +
 					(vertex[0].x-vertex[2].x)*(y-vertex[2].y))*determinant;
-				float lambda2 = 1 - lambda0 - lambda1;
+				float lambda2 = 1.0f - lambda0 - lambda1;
 				
 				/* If is inside the triangle, render it */
 				if (lambda0 >= 0 && lambda1 >= 0 && lambda2 >= 0) 
 				{
 					/* Interpolate Z value */
-					float pixel_depth = vertex[0].z * lambda0 +
+					float pixel_depth;
+			
+					/* Check if we are using ortho or perspective rendering */
+					if (ortho)
+					{
+						pixel_depth = 1.0f/(vertex[0].z * lambda0 +
 								vertex[1].z * lambda1 +
-								vertex[2].z * lambda2;
+								vertex[2].z * lambda2);
+					}
+					else
+					{
+						/* Perspective correct interpolation */
+						pixel_depth = 1.0f/(vertex[0].z) * lambda0 +
+								1.0f/(vertex[1].z) * lambda1 +
+								1.0f/(vertex[2].z) * lambda2;
+					}
 
 					/* Test depth buffer */
-					if (depth[x+y*buffer_width] > pixel_depth)
+					if (depth[x+y*buffer_width] < pixel_depth)
 					{
 						/* Update both buffer */
 						screen[x+y*buffer_width] = material_array[material_index];
