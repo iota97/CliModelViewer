@@ -797,16 +797,16 @@ void render_to_buffer()
 					/* Check if we are using ortho or perspective rendering */
 					if (ortho)
 					{
-						pixel_depth = 1.0f/(vertex[0].z * lambda0 +
+						pixel_depth = 1.f/(vertex[0].z * lambda0 +
 								vertex[1].z * lambda1 +
 								vertex[2].z * lambda2);
 					}
 					else
 					{
 						/* Perspective correct interpolation */
-						pixel_depth = 1.0f/(vertex[0].z) * lambda0 +
-								1.0f/(vertex[1].z) * lambda1 +
-								1.0f/(vertex[2].z) * lambda2;
+						pixel_depth = lambda0 / vertex[0].z +
+								lambda1 / vertex[1].z +
+								lambda2 / vertex[2].z;
 					}
 
 					/* Test depth buffer */
