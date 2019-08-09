@@ -20,7 +20,7 @@
 #define PI 3.14159265359f
 
 /* Rendering const */
-#define NEAR_PLANE 0.2f
+#define NEAR_PLANE 1.f
 #define FAR_PLANE 8192
 #define START_Z 5.f
 
@@ -587,6 +587,10 @@ void render_to_buffer()
 		/* Render the tris with another material */
 		material_index++;
 
+		/* Return to 0 if last element is reached */
+		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
+			material_index = 0;
+
 		for (j = 0; j < 3; j++)
 		{
 			/* Multiply with transform matrix */
@@ -803,10 +807,6 @@ void render_to_buffer()
 				}
 			}			
 		}
-
-		/* Return to 0 if last element is reached */
-		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
-			material_index = 0;
 	}
 
 	return;
