@@ -855,12 +855,17 @@ void draw()
 
 	/* Frame benchmark */
 	#ifdef BENCHMARK
-	struct timeval start_frame, stop_frame;
+	struct timeval start_frame, stop_frame, stop_render;
 	gettimeofday(&start_frame, NULL);
 	#endif
 
 	/* Render to buffer */
 	render_to_buffer();
+
+	/* Benchmark rastering time */
+	#ifdef BENCHMARK
+	gettimeofday(&stop_render, NULL);
+	#endif
 	
 	/* Clear the console */
 	clear_screen();
@@ -905,9 +910,11 @@ void draw()
 	#ifdef BENCHMARK
 	gettimeofday(&stop_frame, NULL);
 
-	mvprintw(0, 0, "[Frame time: %.1f ms]", 
+	mvprintw(0, 0, "[Frame: %.1f ms (Render: %.1f ms)]", 
 		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
-		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000);
+		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000,
+		(double)(stop_render.tv_usec - start_frame.tv_usec)/1000+
+		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000);
 	#endif
 
 	#else
@@ -925,9 +932,11 @@ void draw()
 	#ifdef BENCHMARK
 	gettimeofday(&stop_frame, NULL);
 
-	printf("[Frame time: %.1f ms] > ", 
+	printf("[Frame: %.1f ms (Render: %.1f ms)] > ", 
 		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
-		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000);
+		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000,
+		(double)(stop_render.tv_usec - start_frame.tv_usec)/1000+
+		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000);
 	#else
 	printf("> ");
 	#endif
