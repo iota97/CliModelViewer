@@ -16,6 +16,12 @@
 #include <curses.h>
 #endif
 
+/* Benchmark render time */
+#ifdef BENCHMARK
+#include <sys/time.h>
+static struct timeval start_frame, stop_frame;
+#endif
+
 /* Math const */
 #define PI 3.14159265359f
 
@@ -848,6 +854,11 @@ void draw()
 {
 	int i, j;
 
+	/* Frame benchmark */
+	#ifdef BENCHMARK
+	gettimeofday(&start_frame, NULL);
+	#endif
+
 	/* Render to buffer */
 	render_to_buffer();
 	
@@ -890,6 +901,15 @@ void draw()
 		}
 	}
 
+	/* Frame benchmark */
+	#ifdef BENCHMARK
+	gettimeofday(&stop_frame, NULL);
+
+	mvprintw(0, 0, "[Frame time: %.1f ms]", 
+		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
+		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000);
+	#endif
+
 	#else
 	/* Print it, CLI mode */
 	for (j = 0; j < buffer_height; j++) 
@@ -900,7 +920,17 @@ void draw()
 		}
 		putchar('\n');
 	}
+
+	/* Frame benchmark */
+	#ifdef BENCHMARK
+	gettimeofday(&stop_frame, NULL);
+
+	printf("[Frame time: %.1f ms] > ", 
+		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
+		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000);
+	#else
 	printf("> ");
+	#endif
 	#endif
 
 	return;
