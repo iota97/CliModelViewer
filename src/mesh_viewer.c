@@ -19,7 +19,6 @@
 /* Benchmark render time */
 #ifdef BENCHMARK
 #include <sys/time.h>
-static struct timeval start_frame, stop_frame;
 #endif
 
 /* Math const */
@@ -856,6 +855,7 @@ void draw()
 
 	/* Frame benchmark */
 	#ifdef BENCHMARK
+	struct timeval start_frame, stop_frame;
 	gettimeofday(&start_frame, NULL);
 	#endif
 
