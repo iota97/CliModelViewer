@@ -5,6 +5,8 @@
 "cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
 "cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
 
+Add "-DBENCHMARK" flag to build with frame time
+
 */
 
 /* Input-output and memory management headers */
@@ -106,7 +108,7 @@ void clear_buffer(void);
 void restore_mesh(void);
 void render_to_buffer(void);
 void clear_screen(void);
-void draw(void);
+void draw_screen(void);
 void show_help(void);
 void create_buffer(int width, int height);
 void loop_input(void);
@@ -127,8 +129,8 @@ static vertex_t* vertex_buffer = NULL;
 /* Screen and depth buffer */
 static int buffer_width = 0;
 static int buffer_height = 0;
-static char *screen = NULL;
-static float *depth = NULL;
+static char *screen_buffer = NULL;
+static float *depth_buffer = NULL;
 
 /* Screen rateo based on screen height, width and font rateo */
 static float screen_rateo;
@@ -381,28 +383,28 @@ void translate(float x, float y, float z)
 /* Update transform matrix for scale and rotation */
 void update_transform(float update[3][3])
 {
-	int i, j, k;
+	int row, col, dot_index;
 
 	/* Copy old transform */
 	float copy[4][4];
-	for (i = 0; i < 4; i++)
+	for (row = 0; row < 4; row++)
 	{
-		for (j = 0; j < 4; j++)
+		for (col = 0; col < 4; col++)
 		{
-			copy[i][j] = transform[i][j];
+			copy[col][row] = transform[col][row];
 		}
 	}
 
 	/* Multiply the update * transform using the copy */
-	for (i = 0; i < 3; i++)
+	for (row = 0; row < 3; row++)
 	{
-		for (j = 0; j < 3; j++)
+		for (col = 0; col < 3; col++)
 		{
-			transform[i][j] = 0;
+			transform[col][row] = 0;
 
-			for (k = 0; k < 3; k++)
+			for (dot_index = 0; dot_index < 3; dot_index++)
 			{
-				transform[i][j] += update[k][j]*copy[i][k];
+				transform[col][row] += update[dot_index][row]*copy[col][dot_index];
 			}
 		}
 	}
@@ -413,25 +415,25 @@ void update_transform(float update[3][3])
 /* Scale the mesh */
 void scale(float x, float y, float z)
 {
-	int i, j;
-	float update[3][3];
+	int row, col;
+	float update_mat[3][3];
 
 	/* Create empty matrix */
-	for (i = 0; i < 3; i++)
+	for (row = 0; row < 3; row++)
 	{
-		for (j = 0; j < 3; j++)
+		for (col = 0; col < 3; col++)
 		{
-			update[i][j] = 0;
+			update_mat[col][row] = 0;
 		}
 	}
 
 	/* Add scale */
-	update[0][0] = x;
-	update[1][1] = y;
-	update[2][2] = z;
+	update_mat[0][0] = x;
+	update_mat[1][1] = y;
+	update_mat[2][2] = z;
 
 	/* Update global matrix */
-	update_transform(update);
+	update_transform(update_mat);
 
 	return;
 }
@@ -439,27 +441,32 @@ void scale(float x, float y, float z)
 /* Rotate the mesh on X axis */
 void rotate_x(float x)
 {
-	int i, j;
-	float update[3][3];
+	int row, col;
+	float sin_rot, cos_rot;
+	float update_mat[3][3];
 
 	/* Create empty matrix */
-	for (i = 0; i < 3; i++)
+	for (row = 0; row < 3; row++)
 	{
-		for (j = 0; j < 3; j++)
+		for (col = 0; col < 3; col++)
 		{
-			update[i][j] = 0;
+			update_mat[col][row] = 0;
 		}
 	}
 
+	/* Compute sine and cosine */
+	sin_rot = sine(x);
+	cos_rot = cosine(x);
+
 	/* Add rotation */
-	update[1][1] = cosine(x);
-	update[1][2] = sine(x);
-	update[2][2] = update[1][1];
-	update[2][1] = -update[1][2];
-	update[0][0] = 1.f;
+	update_mat[1][1] = cos_rot;
+	update_mat[1][2] = sin_rot;
+	update_mat[2][2] = cos_rot;
+	update_mat[2][1] = -sin_rot;
+	update_mat[0][0] = 1.f;
 
 	/* Update global matrix */
-	update_transform(update);
+	update_transform(update_mat);
 
 	return;
 }
@@ -467,27 +474,32 @@ void rotate_x(float x)
 /* Rotate the mesh on Y axis */
 void rotate_y(float y)
 {
-	int i, j;
-	float update[3][3];
+	int row, col;
+	float sin_rot, cos_rot;
+	float update_mat[3][3];
 
 	/* Create empty matrix */
-	for (i = 0; i < 3; i++)
+	for (row = 0; row < 3; row++)
 	{
-		for (j = 0; j < 3; j++)
+		for (col = 0; col < 3; col++)
 		{
-			update[i][j] = 0;
+			update_mat[col][row] = 0;
 		}
 	}
+	
+	/* Compute sine and cosine */
+	sin_rot = sine(y);
+	cos_rot = cosine(y);
 
 	/* Add rotation */
-	update[0][0] = cosine(y);
-	update[2][0] = -sine(y);
-	update[0][2] = -update[2][0];
-	update[2][2] = update[0][0];
-	update[1][1] = 1.f;
+	update_mat[0][0] = cos_rot;
+	update_mat[2][0] = -sin_rot;
+	update_mat[0][2] = sin_rot;
+	update_mat[2][2] = cos_rot;
+	update_mat[1][1] = 1.f;
 
 	/* Update global matrix */
-	update_transform(update);
+	update_transform(update_mat);
 
 	return;
 }
@@ -495,27 +507,32 @@ void rotate_y(float y)
 /* Rotate the mesh on Z axis */
 void rotate_z(float z)
 {
-	int i, j;
-	float update[3][3];
+	int row, col;
+	float sin_rot, cos_rot;
+	float update_mat[3][3];
 
 	/* Create empty matrix */
-	for (i = 0; i < 3; i++)
+	for (row = 0; row < 3; row++)
 	{
-		for (j = 0; j < 3; j++)
+		for (col = 0; col < 3; col++)
 		{
-			update[i][j] = 0;
+			update_mat[col][row] = 0;
 		}
 	}
 
+	/* Compute sine and cosine */
+	sin_rot = sine(-z);
+	cos_rot = cosine(-z);
+
 	/* Add rotation */
-	update[0][0] = cosine(-z);
-	update[0][1] = sine(-z);
-	update[1][0] = -update[0][1];
-	update[1][1] = update[0][0];
-	update[2][2] = 1.f;
+	update_mat[0][0] = cos_rot;
+	update_mat[0][1] = sin_rot;
+	update_mat[1][0] = -sin_rot;
+	update_mat[1][1] = cos_rot;
+	update_mat[2][2] = 1.f;
 
 	/* Update global matrix */
-	update_transform(update);
+	update_transform(update_mat);
 
 	return;
 }
@@ -523,13 +540,13 @@ void rotate_z(float z)
 /* Clear the screen and depth buffer */
 void clear_buffer()
 {
-	int i, j;
-	for (i = 0; i < buffer_width; i++)
-	{
-		for (j = 0; j < buffer_height; j++)
+	int row, col;
+	for (row = 0; row < buffer_height; row++)
+	{	
+		for (col = 0; col < buffer_width; col++)
 		{
-			screen[i+j*buffer_width] = ' ';
-			depth[i+j*buffer_width] = 0;
+			screen_buffer[col+row*buffer_width] = ' ';
+			depth_buffer[col+row*buffer_width] = 0;
 		}
 	}
 
@@ -539,17 +556,17 @@ void clear_buffer()
 /* Restore position */
 void restore_mesh()
 {
-	unsigned int i, j;
+	int row, col;
 	
 	/* Restore identity matrix */
-	for (i = 0; i < 4; i++)
+	for (col = 0; col < 4; col++)
 	{
-		for (j = 0; j < 4; j++)
+		for (row = 0; row < 4; row++)
 		{
-			if (i == j)
-				transform[i][j] = 1;
+			if (col == row)
+				transform[col][row] = 1;
 			else
-				transform[i][j] = 0;
+				transform[col][row] = 0;
 		}
 	}
 
@@ -563,7 +580,7 @@ void restore_mesh()
 /* Render to screen buffer */
 void render_to_buffer()
 {
-	int i, j;
+	int tris, vertex;
 	int x, y;
 	unsigned int material_index = 0;
 
@@ -573,7 +590,7 @@ void render_to_buffer()
 	/* Clear before start */
 	clear_buffer();
 
-	for (i = 0; i < tris_count; i++) 
+	for (tris = 0; tris < tris_count; tris++) 
 	{
 		/* Barycentric coordinate determinant */
 		float determinant;
@@ -586,7 +603,7 @@ void render_to_buffer()
 		int behind_near = 0;
 
 		/* Transformed vertex */
-		vertex_t vertex[3];
+		vertex_t vertex_arr[3];
 	
 		/* Render the tris with another material */
 		material_index++;
@@ -595,26 +612,26 @@ void render_to_buffer()
 		if (material_index == sizeof(material_array)/sizeof(material_array[0]))
 			material_index = 0;
 
-		for (j = 0; j < 3; j++)
+		for (vertex = 0; vertex < 3; vertex++)
 		{
 			/* Multiply with transform matrix */
-			vertex[j].x = transform[0][0]*vertex_buffer[tris_buffer[i*3+j]].x+
-					transform[1][0]*vertex_buffer[tris_buffer[i*3+j]].y+
-					transform[2][0]*vertex_buffer[tris_buffer[i*3+j]].z+
+			vertex_arr[vertex].x = transform[0][0]*vertex_buffer[tris_buffer[tris*3+vertex]].x+
+					transform[1][0]*vertex_buffer[tris_buffer[tris*3+vertex]].y+
+					transform[2][0]*vertex_buffer[tris_buffer[tris*3+vertex]].z+
 					transform[3][0];
 
-			vertex[j].y = transform[0][1]*vertex_buffer[tris_buffer[i*3+j]].x+
-					transform[1][1]*vertex_buffer[tris_buffer[i*3+j]].y+
-					transform[2][1]*vertex_buffer[tris_buffer[i*3+j]].z+
+			vertex_arr[vertex].y = transform[0][1]*vertex_buffer[tris_buffer[tris*3+vertex]].x+
+					transform[1][1]*vertex_buffer[tris_buffer[tris*3+vertex]].y+
+					transform[2][1]*vertex_buffer[tris_buffer[tris*3+vertex]].z+
 					transform[3][1];
 
-			vertex[j].z = transform[0][2]*vertex_buffer[tris_buffer[i*3+j]].x+
-					transform[1][2]*vertex_buffer[tris_buffer[i*3+j]].y+
-					transform[2][2]*vertex_buffer[tris_buffer[i*3+j]].z+
+			vertex_arr[vertex].z = transform[0][2]*vertex_buffer[tris_buffer[tris*3+vertex]].x+
+					transform[1][2]*vertex_buffer[tris_buffer[tris*3+vertex]].y+
+					transform[2][2]*vertex_buffer[tris_buffer[tris*3+vertex]].z+
 					transform[3][2];
 
 			/* Count vertex behind near plane */
-			if (vertex[j].z < NEAR_PLANE)
+			if (vertex_arr[vertex].z < NEAR_PLANE)
 				behind_near++;
 		}
 
@@ -636,15 +653,15 @@ void render_to_buffer()
 				int id[3];
 
 				/* Set id[0] as id of the one on the different side */
-				if ((vertex[0].z >= NEAR_PLANE && behind_near == 2) ||
-					(vertex[0].z < NEAR_PLANE && behind_near == 1))
+				if ((vertex_arr[0].z >= NEAR_PLANE && behind_near == 2) ||
+					(vertex_arr[0].z < NEAR_PLANE && behind_near == 1))
 				{
 					id[0] = 0;
 					id[1] = 1;
 					id[2] = 2;
 				}
-				else if ((vertex[1].z >= NEAR_PLANE && behind_near == 2) ||
-					(vertex[1].z < NEAR_PLANE && behind_near == 1))
+				else if ((vertex_arr[1].z >= NEAR_PLANE && behind_near == 2) ||
+					(vertex_arr[1].z < NEAR_PLANE && behind_near == 1))
 				{
 					id[0] = 1;
 					id[1] = 0;
@@ -658,37 +675,37 @@ void render_to_buffer()
 				}
 
 				/* Calculate the intersection point, check alignment first */
-				intersect[0].x = (vertex[id[0]].x == vertex[id[1]].x) ? vertex[id[0]].x :
-						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
-						(vertex[id[0]].x-vertex[id[1]].x)/(vertex[id[0]].z-vertex[id[1]].z);
+				intersect[0].x = (vertex_arr[id[0]].x == vertex_arr[id[1]].x) ? vertex_arr[id[0]].x :
+						vertex_arr[id[0]].x + (NEAR_PLANE-vertex_arr[id[0]].z)*
+						(vertex_arr[id[0]].x-vertex_arr[id[1]].x)/(vertex_arr[id[0]].z-vertex_arr[id[1]].z);
 
-				intersect[0].y = (vertex[id[0]].y == vertex[id[1]].y) ? vertex[id[0]].y :
-						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
-						(vertex[id[0]].y-vertex[id[1]].y)/(vertex[id[0]].z-vertex[id[1]].z);
+				intersect[0].y = (vertex_arr[id[0]].y == vertex_arr[id[1]].y) ? vertex_arr[id[0]].y :
+						vertex_arr[id[0]].y + (NEAR_PLANE-vertex_arr[id[0]].z)*
+						(vertex_arr[id[0]].y-vertex_arr[id[1]].y)/(vertex_arr[id[0]].z-vertex_arr[id[1]].z);
 				
-				intersect[1].x = (vertex[id[0]].x == vertex[id[2]].x) ? vertex[id[0]].x :
-						vertex[id[0]].x + (NEAR_PLANE-vertex[id[0]].z)*
-						(vertex[id[0]].x-vertex[id[2]].x)/(vertex[id[0]].z-vertex[id[2]].z);
+				intersect[1].x = (vertex_arr[id[0]].x == vertex_arr[id[2]].x) ? vertex_arr[id[0]].x :
+						vertex_arr[id[0]].x + (NEAR_PLANE-vertex_arr[id[0]].z)*
+						(vertex_arr[id[0]].x-vertex_arr[id[2]].x)/(vertex_arr[id[0]].z-vertex_arr[id[2]].z);
 
-				intersect[1].y = (vertex[id[0]].y == vertex[id[2]].y) ? vertex[id[0]].y :
-						vertex[id[0]].y + (NEAR_PLANE-vertex[id[0]].z)*
-						(vertex[id[0]].y-vertex[id[2]].y)/(vertex[id[0]].z-vertex[id[2]].z);
+				intersect[1].y = (vertex_arr[id[0]].y == vertex_arr[id[2]].y) ? vertex_arr[id[0]].y :
+						vertex_arr[id[0]].y + (NEAR_PLANE-vertex_arr[id[0]].z)*
+						(vertex_arr[id[0]].y-vertex_arr[id[2]].y)/(vertex_arr[id[0]].z-vertex_arr[id[2]].z);
 				
 				/* Create new tris */
 				if (behind_near == 2)
 				{
 					/* The vertex in front is kept, the other 2 become the intersect */
-					vertex[0].x = vertex[id[0]].x;
-					vertex[0].y = vertex[id[0]].y;
-					vertex[0].z = vertex[id[0]].z;
+					vertex_arr[0].x = vertex_arr[id[0]].x;
+					vertex_arr[0].y = vertex_arr[id[0]].y;
+					vertex_arr[0].z = vertex_arr[id[0]].z;
 
-					vertex[1].x = intersect[0].x;
-					vertex[1].y = intersect[0].y;
-					vertex[1].z = NEAR_PLANE;
+					vertex_arr[1].x = intersect[0].x;
+					vertex_arr[1].y = intersect[0].y;
+					vertex_arr[1].z = NEAR_PLANE;
 
-					vertex[2].x = intersect[1].x;
-					vertex[2].y = intersect[1].y;
-					vertex[2].z = NEAR_PLANE;
+					vertex_arr[2].x = intersect[1].x;
+					vertex_arr[2].y = intersect[1].y;
+					vertex_arr[2].z = NEAR_PLANE;
 				}
 				else
 				{
@@ -701,39 +718,39 @@ void render_to_buffer()
 						/* Create the first tris */
 						vertex_t tmp;
 
-						tmp.x = vertex[id[1]].x;
-						tmp.y = vertex[id[1]].y;
-						tmp.z = vertex[id[1]].z;
+						tmp.x = vertex_arr[id[1]].x;
+						tmp.y = vertex_arr[id[1]].y;
+						tmp.z = vertex_arr[id[1]].z;
 
-						vertex[2].x = vertex[id[2]].x;
-						vertex[2].y = vertex[id[2]].y;
-						vertex[2].z = vertex[id[2]].z;
+						vertex_arr[2].x = vertex_arr[id[2]].x;
+						vertex_arr[2].y = vertex_arr[id[2]].y;
+						vertex_arr[2].z = vertex_arr[id[2]].z;
 	
-						vertex[1].x = tmp.x;
-						vertex[1].y = tmp.y;
-						vertex[1].z = tmp.z;
+						vertex_arr[1].x = tmp.x;
+						vertex_arr[1].y = tmp.y;
+						vertex_arr[1].z = tmp.z;
 
-						vertex[0].x = intersect[0].x;
-						vertex[0].y = intersect[0].y;
-						vertex[0].z = NEAR_PLANE;
+						vertex_arr[0].x = intersect[0].x;
+						vertex_arr[0].y = intersect[0].y;
+						vertex_arr[0].z = NEAR_PLANE;
 
-						/* Decrease i, so we get the same tris next cycle */
-						i--;
+						/* Decrease tris, so we get the same tris next cycle */
+						tris--;
 					}
 					else
 					{	
 						/* Create the second tris */
-						vertex[2].x = vertex[id[2]].x;
-						vertex[2].y = vertex[id[2]].y;
-						vertex[2].z = vertex[id[2]].z;
+						vertex_arr[2].x = vertex_arr[id[2]].x;
+						vertex_arr[2].y = vertex_arr[id[2]].y;
+						vertex_arr[2].z = vertex_arr[id[2]].z;
 				
-						vertex[0].x = intersect[1].x;
-						vertex[0].y = intersect[1].y;
-						vertex[0].z = NEAR_PLANE;
+						vertex_arr[0].x = intersect[1].x;
+						vertex_arr[0].y = intersect[1].y;
+						vertex_arr[0].z = NEAR_PLANE;
 
-						vertex[1].x = intersect[0].x;
-						vertex[1].y = intersect[0].y;
-						vertex[1].z = NEAR_PLANE;
+						vertex_arr[1].x = intersect[0].x;
+						vertex_arr[1].y = intersect[0].y;
+						vertex_arr[1].z = NEAR_PLANE;
 					
 						/* Decrease material, so we use the same as the other half */
 						material_index = (material_index > 0) ? material_index-1 :
@@ -744,31 +761,31 @@ void render_to_buffer()
 		}
 
 		/* Raster vertex to screen */
-		for (j = 0; j < 3; j++)
+		for (vertex = 0; vertex < 3; vertex++)
 		{
 			/* Orthographic projection */
 			if (ortho)
 			{
-				vertex[j].x = (vertex[j].x / -transform[3][2] * buffer_width) + buffer_width/2;
-				vertex[j].y = (vertex[j].y / -transform[3][2] * buffer_height)*screen_rateo + buffer_height/2;
+				vertex_arr[vertex].x = (vertex_arr[vertex].x / -transform[3][2] * buffer_width) + buffer_width/2;
+				vertex_arr[vertex].y = (vertex_arr[vertex].y / -transform[3][2] * buffer_height)*screen_rateo + buffer_height/2;
 			}
 
 			/* Perspective projection */
 			else
 			{
-				vertex[j].x = (vertex[j].x / -vertex[j].z * buffer_width) + buffer_width/2;
-				vertex[j].y = (vertex[j].y / -vertex[j].z * buffer_height)*screen_rateo + buffer_height/2;
+				vertex_arr[vertex].x = (vertex_arr[vertex].x / -vertex_arr[vertex].z * buffer_width) + buffer_width/2;
+				vertex_arr[vertex].y = (vertex_arr[vertex].y / -vertex_arr[vertex].z * buffer_height)*screen_rateo + buffer_height/2;
 			}
 
 			/* Get boundaries */
-			if (vertex[j].x < min_x)
-				min_x = (int) vertex[j].x;
-			if (vertex[j].x > max_x)
-				max_x = (int) vertex[j].x;
-			if (vertex[j].y < min_y)
-				min_y = (int) vertex[j].y;
-			if (vertex[j].y > max_y)
-				max_y = (int) vertex[j].y;
+			if (vertex_arr[vertex].x < min_x)
+				min_x = (int) vertex_arr[vertex].x;
+			if (vertex_arr[vertex].x > max_x)
+				max_x = (int) vertex_arr[vertex].x;
+			if (vertex_arr[vertex].y < min_y)
+				min_y = (int) vertex_arr[vertex].y;
+			if (vertex_arr[vertex].y > max_y)
+				max_y = (int) vertex_arr[vertex].y;
 		}
 
 		/* Check boundaries */
@@ -778,8 +795,8 @@ void render_to_buffer()
 		min_y = (min_y < 0) ? 0 : min_y;
 		
 		/* Calculate the determinant for barycentric coordinate */
-		determinant = 1/((vertex[1].y-vertex[2].y)*(vertex[0].x-vertex[2].x) +
-					(vertex[2].x-vertex[1].x)*(vertex[0].y-vertex[2].y));
+		determinant = 1/((vertex_arr[1].y-vertex_arr[2].y)*(vertex_arr[0].x-vertex_arr[2].x) +
+					(vertex_arr[2].x-vertex_arr[1].x)*(vertex_arr[0].y-vertex_arr[2].y));
 
 		/* Test only the pixel in this area */
 		for (y = min_y; y <= max_y; y++) 
@@ -787,10 +804,10 @@ void render_to_buffer()
 			for (x = min_x; x <= max_x; x++) 
 			{
 				/* Calculate barycentric coordinate */
-				float lambda0 = ((vertex[1].y-vertex[2].y)*(x-vertex[2].x) +
-					(vertex[2].x-vertex[1].x)*(y-vertex[2].y))*determinant;
-				float lambda1 = ((vertex[2].y-vertex[0].y)*(x-vertex[2].x) +
-					(vertex[0].x-vertex[2].x)*(y-vertex[2].y))*determinant;
+				float lambda0 = ((vertex_arr[1].y-vertex_arr[2].y)*(x-vertex_arr[2].x) +
+					(vertex_arr[2].x-vertex_arr[1].x)*(y-vertex_arr[2].y))*determinant;
+				float lambda1 = ((vertex_arr[2].y-vertex_arr[0].y)*(x-vertex_arr[2].x) +
+					(vertex_arr[0].x-vertex_arr[2].x)*(y-vertex_arr[2].y))*determinant;
 				float lambda2 = 1.0f - lambda0 - lambda1;
 				
 				/* If is inside the triangle, render it */
@@ -802,24 +819,24 @@ void render_to_buffer()
 					/* Check if we are using ortho or perspective rendering */
 					if (ortho)
 					{
-						pixel_depth = 1.f/(vertex[0].z * lambda0 +
-								vertex[1].z * lambda1 +
-								vertex[2].z * lambda2);
+						pixel_depth = 1.f/(vertex_arr[0].z * lambda0 +
+								vertex_arr[1].z * lambda1 +
+								vertex_arr[2].z * lambda2);
 					}
 					else
 					{
 						/* Perspective correct interpolation */
-						pixel_depth = lambda0 / vertex[0].z +
-								lambda1 / vertex[1].z +
-								lambda2 / vertex[2].z;
+						pixel_depth = lambda0 / vertex_arr[0].z +
+								lambda1 / vertex_arr[1].z +
+								lambda2 / vertex_arr[2].z;
 					}
 
 					/* Test depth buffer */
-					if (depth[x+y*buffer_width] < pixel_depth)
+					if (depth_buffer[x+y*buffer_width] < pixel_depth)
 					{
 						/* Update both buffer */
-						screen[x+y*buffer_width] = material_array[material_index];
-						depth[x+y*buffer_width] = pixel_depth;
+						screen_buffer[x+y*buffer_width] = material_array[material_index];
+						depth_buffer[x+y*buffer_width] = pixel_depth;
 					}
 				}
 			}			
@@ -838,10 +855,10 @@ void clear_screen()
 	
 	#else
 	/* Use CLI method */
-	int i;
+	int new_line;
 
 	/* Print 64 new line */
-	for (i = 0; i < 64; i++)
+	for (new_line = 0; new_line < 64; new_line++)
 		putchar('\n');
 	#endif
 
@@ -849,9 +866,9 @@ void clear_screen()
 }
 
 /* Draw in the console */
-void draw()
+void draw_screen()
 {
-	int i, j;
+	int col, row;
 
 	/* Frame benchmark */
 	#ifdef BENCHMARK
@@ -874,13 +891,13 @@ void draw()
 	/* Print it, Ncurses color mode */
 	if (use_color)
 	{
-		for (j = 0; j < buffer_height; j++) 
-		{
-			for (i = 0; i < buffer_width; i++)
+		for (row = 0; row < buffer_height; row++)
+		{	
+			for (col = 0; col < buffer_width; col++)
 			{
 				/* Set color attribute */
-				if (screen[i+j*buffer_width] != ' ')
-					attron(COLOR_PAIR(screen[i+j*buffer_width]%7+2));
+				if (screen_buffer[col+row*buffer_width] != ' ')
+					attron(COLOR_PAIR(screen_buffer[col+row*buffer_width]%7+2));
 				else
 					attron(COLOR_PAIR(1));
 					
@@ -896,12 +913,12 @@ void draw()
 	/* Ncurses, no color */
 	else
 	{
-		for (j = 0; j < buffer_height; j++) 
-		{
-			for (i = 0; i < buffer_width; i++)
+		for (row = 0; row < buffer_height; row++)
+		{	
+			for (col = 0; col < buffer_width; col++)
 			{
 				/* Print the char in the buffer */
-				addch(screen[i+j*buffer_width]);
+				addch(screen_buffer[col+row*buffer_width]);
 			}
 		}
 	}
@@ -919,11 +936,11 @@ void draw()
 
 	#else
 	/* Print it, CLI mode */
-	for (j = 0; j < buffer_height; j++) 
-	{
-		for (i = 0; i < buffer_width; i++)
+	for (row = 0; row < buffer_height; row++)
+	{	
+		for (col = 0; col < buffer_width; col++)
 		{
-			putchar(screen[i+j*buffer_width]);
+			putchar(screen_buffer[col+row*buffer_width]);
 		}
 		putchar('\n');
 	}
@@ -978,12 +995,12 @@ void create_buffer(int width, int height)
 		return;
 
 	/* Free old buffer */
-	free(screen);
-	free(depth);
+	free(screen_buffer);
+	free(depth_buffer);
 
 	/* Allocate new one */
-	screen = (char*) malloc(sizeof(char) * width * height);
-	depth = (float*) malloc(sizeof(float) * width * height);
+	screen_buffer = (char*) malloc(sizeof(char) * width * height);
+	depth_buffer = (float*) malloc(sizeof(float) * width * height);
 
 	/* Set global buffer size */
 	buffer_width = width;
@@ -1012,7 +1029,7 @@ void loop_input()
 		}
 
 		/* Render */
-		draw();
+		draw_screen();
 
 		/* Get input */
 		command = getch();
@@ -1131,7 +1148,7 @@ void loop_input()
 	while(!quit)
 	{	
 		/* Render it */
-		draw();
+		draw_screen();
 
 		/* Get input */
 		fgets(command, 64, stdin);
@@ -1269,14 +1286,14 @@ int main(int argc, char *argv[])
 	/* Color init */
 	if (has_colors())
 	{
-		unsigned int i;
+		unsigned int material;
 		start_color();
 		
 		/* Material array color pair*/
-		for (i = 0; i < sizeof(material_array)/sizeof(material_array[0]); i++)
+		for (material = 0; material < sizeof(material_array)/sizeof(material_array[0]); material++)
 		{
 			/* Color from 1 to 7 */
-			init_pair(material_array[i]%7+2, COLOR_WHITE, i%7+1);
+			init_pair(material_array[material]%7+2, COLOR_WHITE, material%7+1);
 		}
 
 		/* Blank space */
@@ -1304,8 +1321,8 @@ int main(int argc, char *argv[])
 	/* Free memory */
 	free(tris_buffer);
 	free(vertex_buffer);
-	free(screen);
-	free(depth);
+	free(screen_buffer);
+	free(depth_buffer);
 	
 	/* Kill the windows */
 	#ifdef NCURSES
