@@ -1157,10 +1157,6 @@ void loop_input()
 		if (command[0] == 'q')
 			quit = 1;
 
-		/* Orthogonal or perspective */
-		else if (command[0] == 'p')
-			ortho = !ortho;
-
 		/* Viewport resize */
 		else if (command[0] == 'v')
 		{
@@ -1171,6 +1167,7 @@ void loop_input()
 			{
 				/* Recreate a new buffer */
 				create_buffer(width, height);
+				continue;
 			}
 		}
 		
@@ -1251,7 +1248,11 @@ void loop_input()
 
 		/* Print help */
 		else if (command[0] == 'h')
-			show_help();	
+			show_help();
+	
+		/* Orthogonal or perspective */
+		else if (command[0] == 'p')
+			ortho = !ortho;
 
 		/* Save last command */
 		last[0] = command[0];
