@@ -7,6 +7,8 @@ Build with:
 	"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
 	"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
 
+	Add "-DBENCHMARK" flag to build with frame time
+
 
 Syntax: 
 
@@ -18,6 +20,7 @@ Normal mode command syntax:
 	t[axis] [ammount] - translate
 	r[axis] [ammount] - rotate
 	s[axis] [ammount] - scale
+	p - ortho view
 	h - help
 	m - reset
 	q - quit
@@ -46,5 +49,5 @@ Ncurses mode command list:
 									
 	Scale:		+, -
 								
-	Misc: 		R - reset	C - color
+	Misc: 		R - reset	C - color	P - ortho view
 			H - help	Q - quit
