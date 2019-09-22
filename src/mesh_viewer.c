@@ -14,6 +14,9 @@ Add "-DBENCHMARK" flag to build with frame time
 #include <stdlib.h>
 #include <math.h>
 
+/* Math PI for ANSI C */
+#define PI 3.14159265358979323846
+
 /* Ncurses header */
 #ifdef NCURSES
 #include <curses.h>
@@ -156,7 +159,7 @@ static float transform[4][4];
 /* Normalize rotation between 0 and 2PI */
 float normalized_angle(float x)
 {
-	return (x < 0) ? x + 2*M_PI*((int)(-x/(2*M_PI))+1) : x - 2*M_PI*(int)(x/(2*M_PI));
+	return (x < 0) ? x + 2*PI*((int)(-x/(2*PI))+1) : x - 2*PI*(int)(x/(2*PI));
 }
 
 /* Read the mesh file */
@@ -484,7 +487,7 @@ void restore_mesh()
 
 	/* Translate and rotate for initial view */
 	translate(0, 0, START_Z);
-	rotate_y(M_PI);
+	rotate_y(PI);
 
 	return;
 }
@@ -1178,7 +1181,7 @@ void loop_input()
 		else if (command[0] == 'r')
 		{
 			/* Convert from degree to radian */
-			float angle = ammount*M_PI/180;
+			float angle = ammount*PI/180;
 
 			/* Rotate */
 			if (command[1] == 'x')
