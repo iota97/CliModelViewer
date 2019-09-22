@@ -3,13 +3,13 @@
 /* Build with: 
 
 "cc -O2 mesh_viewer.c -o mesh_viewer -lm" for normal mode
-"cc -O2 mesh_viewer.c -o mesh_viewer -lm -lncurses -DNCURSES" for NCURSES mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -lm -DNCURSES" for NCURSES mode
 
 Add "-DBENCHMARK" flag to build with frame time
 
 */
 
-/* Input-output, memory management and math headers */
+/* Input-output and memory management headers */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -139,7 +139,7 @@ static float screen_rateo;
 static int ortho = 0;
 
 /* Use light */
-static int do_light = 0;
+static int do_light = 1;
 
 /* Material array of char */
 static char material_array[] = {'a', 'b', 'c', 'd', 
@@ -693,7 +693,11 @@ void render_to_buffer()
 	
 		/* Compute light factor */
 		light = normal.x*-LIGHT_POS_X+normal.y*LIGHT_POS_Y+normal.z*LIGHT_POS_Z;
-
+		
+		/* Flip normal if its a backward (light of inside face will be flipped) */
+		if (normal.z > 0) 
+			light *= -1;
+		
 		/* Raster vertex to screen */
 		for (vertex = 0; vertex < 3; vertex++)
 		{
