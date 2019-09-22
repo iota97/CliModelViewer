@@ -900,11 +900,12 @@ void draw_screen()
 	#ifdef BENCHMARK
 	gettimeofday(&stop_frame, NULL);
 
-	mvprintw(0, 0, "[Frame: %.1f ms (Render: %.1f ms)]", 
+	mvprintw(0, 0, "[Frame: %.1f ms (Render: %.1f ms), Tris: %d]", 
 		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
 		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000,
 		(double)(stop_render.tv_usec - start_frame.tv_usec)/1000+
-		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000);
+		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000,
+		tris_count);
 	#endif
 
 	#else
@@ -922,11 +923,12 @@ void draw_screen()
 	#ifdef BENCHMARK
 	gettimeofday(&stop_frame, NULL);
 
-	printf("[Frame: %.1f ms (Render: %.1f ms)] > ", 
+	printf("[Frame: %.1f ms (Render: %.1f ms), Tris: %d] > ", 
 		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
 		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000,
 		(double)(stop_render.tv_usec - start_frame.tv_usec)/1000+
-		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000);
+		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000.
+		tris_count);
 	#else
 	printf("> ");
 	#endif
@@ -1276,7 +1278,7 @@ int main(int argc, char *argv[])
 		for (material = 0; material < sizeof(material_array)/sizeof(material_array[0]); material++)
 		{
 			/* Color from 1 to 7 */
-			init_pair(material_array[material]%7+4, COLOR_WHITE, material%7+3);
+			init_pair(material_array[material]%7+4, COLOR_WHITE, material%7+1);
 		}
 
 		/* Black, white and albedo for background and light mode */
