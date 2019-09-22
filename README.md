@@ -4,8 +4,8 @@ CLI mesh rasterizer - Use with .obj model format
 
 Build with: 
 
-	"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
-	"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+	"cc -O2 mesh_viewer.c -o mesh_viewer -lm" for normal mode
+	"cc -O2 mesh_viewer.c -o mesh_viewer -lm -lncurses -DNCURSES" for NCURSES mode
 
 	Add "-DBENCHMARK" flag to build with frame time
 
@@ -21,6 +21,7 @@ Normal mode command syntax:
 	r[axis] [ammount] - rotate
 	s[axis] [ammount] - scale
 	p - ortho view
+	l - light mode
 	h - help
 	m - reset
 	q - quit
@@ -50,4 +51,4 @@ Ncurses mode command list:
 	Scale:		+, -
 								
 	Misc: 		R - reset	C - color	P - ortho view
-			H - help	Q - quit
+			H - help	Q - quit	T - light 

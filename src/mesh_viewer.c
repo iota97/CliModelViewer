@@ -2,16 +2,17 @@
 
 /* Build with: 
 
-"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
-"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lm" for normal mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lm -lncurses -DNCURSES" for NCURSES mode
 
 Add "-DBENCHMARK" flag to build with frame time
 
 */
 
-/* Input-output and memory management headers */
+/* Input-output, memory management and math headers */
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 /* Ncurses header */
 #ifdef NCURSES
@@ -23,12 +24,12 @@ Add "-DBENCHMARK" flag to build with frame time
 #include <sys/time.h>
 #endif
 
-/* Math const */
-#define PI 3.14159265359f
-
 /* Rendering const */
 #define NEAR_PLANE 0.2f
-#define START_Z 5.f
+#define START_Z 5.0f
+#define LIGHT_POS_X 1.0f
+#define LIGHT_POS_Y 2.0f
+#define LIGHT_POS_Z 0.0f
 
 /* Font width/height rateo */
 #define FONT_RATEO 0.5f
@@ -56,7 +57,7 @@ static const char* const HELP_MESSAGE =
 	Scale:		+, -						\n\
 									\n\
 	Misc: 		R - reset	C - color	P - ortho view	\n\
-			H - help	Q - quit			\n\
+			H - help	Q - quit	T - light  	\n\
 									\n\
 Press ANY key to continue";					
 
@@ -69,6 +70,7 @@ static const char* const HELP_MESSAGE0 =
 	r[axis] [ammount] - rotate					\n\
 	s[axis] [ammount] - scale					\n\
 	p - ortho view							\n\
+	l - light mode							\n\
 	h - help							\n\
 	m - reset							\n\
 	q - quit							\n\
@@ -95,8 +97,6 @@ Press ENTER to continue							";
 
 /* Function prototype */
 float normalized_angle(float x);
-float sine(float x);
-float cosine(float x);
 int parse_obj(char* path);
 void translate(float x, float y, float z);
 void update_transform(float update[3][3]);
@@ -138,6 +138,9 @@ static float screen_rateo;
 /* Orthographic or perspective */
 static int ortho = 0;
 
+/* Use light */
+static int do_light = 0;
+
 /* Material array of char */
 static char material_array[] = {'a', 'b', 'c', 'd', 
 				'e', 'f', 'g', 'h',
@@ -150,101 +153,7 @@ static float transform[4][4];
 /* Normalize rotation between 0 and 2PI */
 float normalized_angle(float x)
 {
-	return (x < 0) ? x + 2*PI*((int)(-x/(2*PI))+1) : x - 2*PI*(int)(x/(2*PI));
-}	
-
-/* Sine */
-float sine(float x)
-{
-	float sign;
-
-	/* Normalize the rotation */
-	x = normalized_angle(x);
-		
-	/* Check sign */
-	if (x < PI)
-		sign = 1;
-	else
-		sign = -1;
-
-	/* Check symmetry */
-	if (x < PI/2 || (x >= PI && x < 3*PI/2))
-		x -= (PI/2)*(int)(x/(PI/2));
-	else
-		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
-
-	/* Check it to be below 45 degree */
-	if (x < PI/4)
-	{
-		/* Polinomial approximation */
-		float x2 = x*x;
-		float x3 = x2*x;
-		float sine = x - x3/6 + x2*x3/120;
-
-		return sine*sign;
-	}
-	else
-	{
-		float x2, x4, x6, cosine;
-
-		/* Transform to cosine */
-		x = PI/2 - x;
-
-		/* Polinomial approximation */
-		x2 = x*x;
-		x4 = x2*x2;
-		x6 = x2*x4;
-		cosine = 1 - x2/2 + x4/24 - x6/720;
-
-		return cosine*sign;
-	}
-}
-
-/* Cosine */
-float cosine(float x)
-{
-	float sign;
-
-	/* Normalize the rotation */
-	x = normalized_angle(x);
-		
-	/* Check sign */
-	if (x < PI/2 || x >= 3*PI/2)
-		sign = 1;
-	else
-		sign = -1;
-
-	/* Check symmetry */
-	if (x < PI/2 || (x >= PI && x < 3*PI/2))
-		x -= (PI/2)*(int)(x/(PI/2));
-	else
-		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
-
-	/* Check it to be below 45 degree */
-	if (x < PI/4)
-	{
-		/* Polinomial approximation */
-		float x2 = x*x;
-		float x4 = x2*x2;
-		float x6 = x2*x4;
-		float cosine = 1 - x2/2 + x4/24 - x6/720;
-
-		return cosine*sign;
-	}
-	else
-	{
-		float x2, x3, sine;
-	
-		/* Transform to sine */
-		x = PI/2 - x;
-
-		/* Polinomial approximation */
-		x2 = x*x;
-		x3 = x2*x;
-		sine = x - x3/6 + x2*x3/120;
-
-		return sine*sign;
-	}
+	return (x < 0) ? x + 2*M_PI*((int)(-x/(2*M_PI))+1) : x - 2*M_PI*(int)(x/(2*M_PI));
 }
 
 /* Read the mesh file */
@@ -455,8 +364,8 @@ void rotate_x(float x)
 	}
 
 	/* Compute sine and cosine */
-	sin_rot = sine(x);
-	cos_rot = cosine(x);
+	sin_rot = sin(x);
+	cos_rot = cos(x);
 
 	/* Add rotation */
 	update_mat[1][1] = cos_rot;
@@ -488,8 +397,8 @@ void rotate_y(float y)
 	}
 	
 	/* Compute sine and cosine */
-	sin_rot = sine(y);
-	cos_rot = cosine(y);
+	sin_rot = sin(y);
+	cos_rot = cos(y);
 
 	/* Add rotation */
 	update_mat[0][0] = cos_rot;
@@ -521,8 +430,8 @@ void rotate_z(float z)
 	}
 
 	/* Compute sine and cosine */
-	sin_rot = sine(-z);
-	cos_rot = cosine(-z);
+	sin_rot = sin(-z);
+	cos_rot = cos(-z);
 
 	/* Add rotation */
 	update_mat[0][0] = cos_rot;
@@ -572,7 +481,7 @@ void restore_mesh()
 
 	/* Translate and rotate for initial view */
 	translate(0, 0, START_Z);
-	rotate_y(PI);
+	rotate_y(M_PI);
 
 	return;
 }
@@ -604,6 +513,10 @@ void render_to_buffer()
 
 		/* Transformed vertex */
 		vertex_t vertex_arr[3];
+
+		/* Face normal and lighting */
+		vertex_t normal, edge0, edge1;
+		float normal_mag, light;
 	
 		/* Render the tris with another material */
 		material_index++;
@@ -635,7 +548,7 @@ void render_to_buffer()
 				behind_near++;
 		}
 
-		/* Near plane culling */
+		/* Near plane clipping nad culling */
 		if (behind_near > 0)
 		{
 			/* If all vertex are behind */
@@ -760,6 +673,27 @@ void render_to_buffer()
 			}
 		}
 
+		/* Compute face normal */
+		edge0.x = vertex_arr[0].x-vertex_arr[2].x;
+		edge0.y = vertex_arr[0].y-vertex_arr[2].y;
+		edge0.z = vertex_arr[0].z-vertex_arr[2].z;
+		edge1.x = vertex_arr[1].x-vertex_arr[2].x;
+		edge1.y = vertex_arr[1].y-vertex_arr[2].y;
+		edge1.z = vertex_arr[1].z-vertex_arr[2].z;
+
+		normal.x = edge0.y*edge1.z - edge0.z*edge1.y;
+		normal.y = edge0.z*edge1.x - edge0.x*edge1.z;
+		normal.z = edge0.x*edge1.y - edge0.y*edge1.x;
+
+		/* Normalize the normal */
+		normal_mag = sqrt(normal.x*normal.x+normal.y*normal.y+normal.z*normal.z);
+		normal.x /= normal_mag;
+		normal.y /= normal_mag;
+		normal.z /= normal_mag;
+	
+		/* Compute light factor */
+		light = normal.x*-LIGHT_POS_X+normal.y*LIGHT_POS_Y+normal.z*LIGHT_POS_Z;
+
 		/* Raster vertex to screen */
 		for (vertex = 0; vertex < 3; vertex++)
 		{
@@ -834,9 +768,13 @@ void render_to_buffer()
 					/* Test depth buffer */
 					if (depth_buffer[x+y*buffer_width] < pixel_depth)
 					{
-						/* Update both buffer */
-						screen_buffer[x+y*buffer_width] = material_array[material_index];
+						/* Update both buffer */	
 						depth_buffer[x+y*buffer_width] = pixel_depth;
+					
+						if (do_light)
+							screen_buffer[x+y*buffer_width] = light > 0 ? material_array[6] : material_array[0];
+						else
+							screen_buffer[x+y*buffer_width] = material_array[material_index];
 					}
 				}
 			}			
@@ -900,8 +838,7 @@ void draw_screen()
 					attron(COLOR_PAIR(screen_buffer[col+row*buffer_width]%7+2));
 				else
 					attron(COLOR_PAIR(1));
-					
-				/* Print a blank space */
+
 				addch(' ');
 			}
 		}
@@ -1049,6 +986,11 @@ void loop_input()
 			/* Orthogonal or perspective */
 			case 'p':
 				ortho = !ortho;
+				break;
+
+			/* Light mode */
+			case 't':
+				do_light = !do_light;
 				break;
 		
 			/* Color */
@@ -1203,7 +1145,7 @@ void loop_input()
 		else if (command[0] == 'r')
 		{
 			/* Convert from degree to radian */
-			float angle = ammount*PI/180;
+			float angle = ammount*M_PI/180;
 
 			/* Rotate */
 			if (command[1] == 'x')
@@ -1253,6 +1195,10 @@ void loop_input()
 		/* Orthogonal or perspective */
 		else if (command[0] == 'p')
 			ortho = !ortho;
+		
+		/* Light mode */
+		else if (command[0] == 'l')
+			do_light = !do_light;
 
 		/* Save last command */
 		last[0] = command[0];
