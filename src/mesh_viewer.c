@@ -30,6 +30,9 @@ Add "-DBENCHMARK" flag to build with frame time
 #define LIGHT_POS_X 1.0f
 #define LIGHT_POS_Y 2.0f
 #define LIGHT_POS_Z 0.0f
+#define SHADOW_CHAR '!'
+#define LIGHT_CHAR '#'
+#define COLOR_ALBEDO COLOR_RED
 
 /* Font width/height rateo */
 #define FONT_RATEO 0.5f
@@ -776,7 +779,7 @@ void render_to_buffer()
 						depth_buffer[x+y*buffer_width] = pixel_depth;
 					
 						if (do_light)
-							screen_buffer[x+y*buffer_width] = light > 0 ? material_array[6] : material_array[0];
+							screen_buffer[x+y*buffer_width] = light < 0 ? SHADOW_CHAR : LIGHT_CHAR;
 						else
 							screen_buffer[x+y*buffer_width] = material_array[material_index];
 					}
@@ -833,18 +836,43 @@ void draw_screen()
 	/* Print it, Ncurses color mode */
 	if (use_color)
 	{
-		for (row = 0; row < buffer_height; row++)
-		{	
-			for (col = 0; col < buffer_width; col++)
-			{
-				/* Set color attribute */
-				if (screen_buffer[col+row*buffer_width] != ' ')
-					attron(COLOR_PAIR(screen_buffer[col+row*buffer_width]%7+2));
-				else
-					attron(COLOR_PAIR(1));
+		/* Light mode */
+		if (do_light)
+		{
+			for (row = 0; row < buffer_height; row++)
+			{	
+				for (col = 0; col < buffer_width; col++)
+				{
+					/* Set color attribute */
+					if (screen_buffer[col+row*buffer_width] == SHADOW_CHAR)
+						attron(COLOR_PAIR(3));
+					else if (screen_buffer[col+row*buffer_width] == LIGHT_CHAR)
+						attron(COLOR_PAIR(2));
+					else
+						attron(COLOR_PAIR(1));
 
-				/* Print a blank space */
-				addch(' ');
+					/* Print a blank space */
+					addch(' ');
+				}
+			}
+		}
+
+		/* No light */
+		else
+		{
+			for (row = 0; row < buffer_height; row++)
+			{	
+				for (col = 0; col < buffer_width; col++)
+				{
+					/* Set color attribute */
+					if (screen_buffer[col+row*buffer_width] != ' ')
+						attron(COLOR_PAIR(screen_buffer[col+row*buffer_width]%7+4));
+					else
+						attron(COLOR_PAIR(1));
+
+					/* Print a blank space */
+					addch(' ');
+				}
 			}
 		}
 
@@ -1245,11 +1273,13 @@ int main(int argc, char *argv[])
 		for (material = 0; material < sizeof(material_array)/sizeof(material_array[0]); material++)
 		{
 			/* Color from 1 to 7 */
-			init_pair(material_array[material]%7+2, COLOR_WHITE, material%7+1);
+			init_pair(material_array[material]%7+4, COLOR_WHITE, material%7+3);
 		}
 
-		/* Blank space */
+		/* Black, white and albedo for background and light mode */
 		init_pair(1, COLOR_WHITE, COLOR_BLACK);
+		init_pair(2, COLOR_WHITE, COLOR_WHITE);
+		init_pair(3, COLOR_WHITE, COLOR_ALBEDO);
 	}
 	#endif
 
