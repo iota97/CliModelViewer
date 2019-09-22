@@ -3,13 +3,13 @@
 /* Build with: 
 
 "cc -O2 mesh_viewer.c -o mesh_viewer -lm" for normal mode
-"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -lm -DNCURSES" for NCURSES mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lm -lncurses -DNCURSES" for NCURSES mode
 
 Add "-DBENCHMARK" flag to build with frame time
 
 */
 
-/* Input-output and memory management headers */
+/* Input-output, memory management and math headers */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -843,6 +843,7 @@ void draw_screen()
 				else
 					attron(COLOR_PAIR(1));
 
+				/* Print a blank space */
 				addch(' ');
 			}
 		}
