@@ -2,17 +2,27 @@
 
 CLI mesh rasterizer - Use with .obj model format
 
-Build with: 
+Build and install:
 
-	"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
-	"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
+	"make" 			ncurses,	frametime
+	"make basic" 		NO ncurses,	NO frametime
+	"make ncurses"		ncurses, 	NO frametime
+	"make time" 		NO ncurses, 	frametime
+	
+	"sudo make install" - install on system
+	"sudo make uninstall" - remove from system
+
+	To build without make you may use the following commands:
+
+	"cc -O2 mesh_viewer.c -o mesh-viewer" for normal mode
+	"cc -O2 mesh_viewer.c -o mesh-viewer -lncurses -DNCURSES" for NCURSES mode
 
 	Add "-DBENCHMARK" flag to build with frame time
 
 
-Syntax: 
+Syntax and use: 
 
-	mesh_viewer [path/to/mesh.obj]
+	mesh-viewer [path/to/mesh.obj]
 
 
 Normal mode command syntax:
