@@ -2,8 +2,8 @@
 
 /* Build with: 
 
-"cc -O2 mesh_viewer.c -o mesh_viewer -lm" for normal mode
-"cc -O2 mesh_viewer.c -o mesh_viewer -lm -lncurses -DNCURSES" for NCURSES mode
+"cc -O2 mesh_viewer.c -o mesh_viewer" for normal mode
+"cc -O2 mesh_viewer.c -o mesh_viewer -lncurses -DNCURSES" for NCURSES mode
 
 Add "-DBENCHMARK" flag to build with frame time
 
@@ -12,10 +12,9 @@ Add "-DBENCHMARK" flag to build with frame time
 /* Input-output, memory management and math headers */
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-/* Math PI for ANSI C */
-#define PI 3.14159265358979323846
+/* Math const */
+#define PI 3.14159265358979f
 
 /* Ncurses header */
 #ifdef NCURSES
@@ -103,6 +102,8 @@ Press ENTER to continue							";
 
 /* Function prototype */
 float normalized_angle(float x);
+float sine(float x);
+float cosine(float x);
 int parse_obj(char* path);
 void translate(float x, float y, float z);
 void update_transform(float update[3][3]);
@@ -160,6 +161,100 @@ static float transform[4][4];
 float normalized_angle(float x)
 {
 	return (x < 0) ? x + 2*PI*((int)(-x/(2*PI))+1) : x - 2*PI*(int)(x/(2*PI));
+}
+
+/* Sine */
+float sine(float x)
+{
+	float sign;
+
+	/* Normalize the rotation */
+	x = normalized_angle(x);
+
+	/* Check sign */
+	if (x < PI)
+		sign = 1;
+	else
+		sign = -1;
+
+	/* Check symmetry */
+	if (x < PI/2 || (x >= PI && x < 3*PI/2))
+		x -= (PI/2)*(int)(x/(PI/2));
+	else
+		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
+
+	/* Check it to be below 45 degree */
+	if (x < PI/4)
+	{
+		/* Polinomial approximation */
+		float x2 = x*x;
+		float x3 = x2*x;
+		float sine = x - x3/6 + x2*x3/120;
+
+		return sine*sign;
+	}
+	else
+	{
+		float x2, x4, x6, cosine;
+
+		/* Transform to cosine */
+		x = PI/2 - x;
+
+		/* Polinomial approximation */
+		x2 = x*x;
+		x4 = x2*x2;
+		x6 = x2*x4;
+		cosine = 1 - x2/2 + x4/24 - x6/720;
+
+		return cosine*sign;
+	}
+}
+
+/* Cosine */
+float cosine(float x)
+{
+	float sign;
+
+	/* Normalize the rotation */
+	x = normalized_angle(x);
+
+	/* Check sign */
+	if (x < PI/2 || x >= 3*PI/2)
+		sign = 1;
+	else
+		sign = -1;
+
+	/* Check symmetry */
+	if (x < PI/2 || (x >= PI && x < 3*PI/2))
+		x -= (PI/2)*(int)(x/(PI/2));
+	else
+		x = PI/2 - x + (PI/2)*(int)(x/(PI/2));
+
+	/* Check it to be below 45 degree */
+	if (x < PI/4)
+	{
+		/* Polinomial approximation */
+		float x2 = x*x;
+		float x4 = x2*x2;
+		float x6 = x2*x4;
+		float cosine = 1 - x2/2 + x4/24 - x6/720;
+
+		return cosine*sign;
+	}
+	else
+	{
+		float x2, x3, sine;
+
+		/* Transform to sine */
+		x = PI/2 - x;
+
+		/* Polinomial approximation */
+		x2 = x*x;
+		x3 = x2*x;
+		sine = x - x3/6 + x2*x3/120;
+
+		return sine*sign;
+	}
 }
 
 /* Read the mesh file */
@@ -370,8 +465,8 @@ void rotate_x(float x)
 	}
 
 	/* Compute sine and cosine */
-	sin_rot = sin(x);
-	cos_rot = cos(x);
+	sin_rot = sine(x);
+	cos_rot = cosine(x);
 
 	/* Add rotation */
 	update_mat[1][1] = cos_rot;
@@ -403,8 +498,8 @@ void rotate_y(float y)
 	}
 	
 	/* Compute sine and cosine */
-	sin_rot = sin(y);
-	cos_rot = cos(y);
+	sin_rot = sine(y);
+	cos_rot = cosine(y);
 
 	/* Add rotation */
 	update_mat[0][0] = cos_rot;
@@ -436,8 +531,8 @@ void rotate_z(float z)
 	}
 
 	/* Compute sine and cosine */
-	sin_rot = sin(-z);
-	cos_rot = cos(-z);
+	sin_rot = sine(-z);
+	cos_rot = cosine(-z);
 
 	/* Add rotation */
 	update_mat[0][0] = cos_rot;
@@ -679,30 +774,28 @@ void render_to_buffer()
 			}
 		}
 
-		/* Compute face normal */
-		edge0.x = vertex_arr[0].x-vertex_arr[2].x;
-		edge0.y = vertex_arr[0].y-vertex_arr[2].y;
-		edge0.z = vertex_arr[0].z-vertex_arr[2].z;
-		edge1.x = vertex_arr[1].x-vertex_arr[2].x;
-		edge1.y = vertex_arr[1].y-vertex_arr[2].y;
-		edge1.z = vertex_arr[1].z-vertex_arr[2].z;
+		/* Face normal and light intensity */
+		if (do_light)
+		{
+			/* Compute face normal as cross product */
+			edge0.x = vertex_arr[0].x-vertex_arr[2].x;
+			edge0.y = vertex_arr[0].y-vertex_arr[2].y;
+			edge0.z = vertex_arr[0].z-vertex_arr[2].z;
+			edge1.x = vertex_arr[1].x-vertex_arr[2].x;
+			edge1.y = vertex_arr[1].y-vertex_arr[2].y;
+			edge1.z = vertex_arr[1].z-vertex_arr[2].z;
 
-		normal.x = edge0.y*edge1.z - edge0.z*edge1.y;
-		normal.y = edge0.z*edge1.x - edge0.x*edge1.z;
-		normal.z = edge0.x*edge1.y - edge0.y*edge1.x;
-
-		/* Normalize the normal */
-		normal_mag = sqrt(normal.x*normal.x+normal.y*normal.y+normal.z*normal.z);
-		normal.x /= normal_mag;
-		normal.y /= normal_mag;
-		normal.z /= normal_mag;
+			normal.x = edge0.y*edge1.z - edge0.z*edge1.y;
+			normal.y = edge0.z*edge1.x - edge0.x*edge1.z;
+			normal.z = edge0.x*edge1.y - edge0.y*edge1.x;
 	
-		/* Compute light factor */
-		light = normal.x*-LIGHT_POS_X+normal.y*LIGHT_POS_Y+normal.z*LIGHT_POS_Z;
+			/* Compute light factor */
+			light = normal.x*-LIGHT_POS_X+normal.y*LIGHT_POS_Y+normal.z*LIGHT_POS_Z;
 		
-		/* Flip normal if its a backward (light of inside face will be flipped) */
-		if (normal.z > 0) 
-			light *= -1;
+			/* Flip normal if its a backward */
+			if (normal.z > 0) 
+				light *= -1;
+		}
 		
 		/* Raster vertex to screen */
 		for (vertex = 0; vertex < 3; vertex++)
@@ -927,7 +1020,7 @@ void draw_screen()
 		(double)(stop_frame.tv_usec - start_frame.tv_usec)/1000+
 		(double)(stop_frame.tv_sec - start_frame.tv_sec)*1000,
 		(double)(stop_render.tv_usec - start_frame.tv_usec)/1000+
-		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000.
+		(double)(stop_render.tv_sec - start_frame.tv_sec)*1000,
 		tris_count);
 	#else
 	printf("> ");
