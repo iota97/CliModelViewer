@@ -9,8 +9,8 @@ Build and install:
 	"make ncurses"		ncurses, 	NO frametime
 	"make time" 		NO ncurses, 	frametime
 	
-	"sudo make install" - install on system
-	"sudo make uninstall" - remove from system
+	"sudo make install"	install on system
+	"sudo make uninstall" 	remove from system
 
 	To build without make you may use the following commands:
 
